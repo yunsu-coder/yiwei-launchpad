@@ -1,0 +1,7 @@
+node_modules/
+scrape/
+files/
+notes/
+font-map.json
+/tmp/
+*.log
