@@ -384,3 +384,15 @@
   .ai-msg.assistant .bubble { background:var(--card);border:1px solid var(--border);border-bottom-left-radius:4px; box-shadow:var(--shadow); }
   .ai-msg .bubble pre { background:var(--editor-bg);padding:.5rem;border-radius:6px;overflow-x:auto;font-size:.8rem; }
   .ai-msg .bubble code { font-size:.8rem;background:var(--hover);padding:1px 4px;border-radius:3px; }
+/* 笔记预览 */
+.preview { flex:1; padding:.6rem; background:var(--preview-bg); overflow-y:auto; line-height:1.7; font-size:.85rem; }
+.preview table { border-collapse:collapse; margin:.8em 0; width:100%; }
+.preview th { background:var(--accent); color:#fff; padding:6px 10px; text-align:left; border:1px solid var(--accent); }
+.preview td { border:1px solid var(--border); padding:6px 10px; }
+.preview tr:nth-child(even) td { background:var(--hover); }
+.preview blockquote { border-left:3px solid var(--accent); margin:.8em 0; padding:.3em 1em; color:var(--sub); }
+.preview ol,.preview ul { padding-left:1.8em; margin:.4em 0; }
+.preview li.task { list-style:none; margin-left:-1.5em; }
+.preview li.task.done { text-decoration:line-through; opacity:0.6; }
+.preview del { opacity:0.6; }
+.preview hr { border:none; border-top:1px solid var(--border); margin:1em 0; }
