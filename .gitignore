@@ -5,3 +5,4 @@ notes/
 font-map.json
 /tmp/
 *.log
+.env

@@ -5,8 +5,17 @@ const path = require('path');
 const { URL } = require('url');
 
 const { getStatus, listFiles, uploadFiles, deleteFile, getFilePath, getFilePreview,
-        listNotes, saveNote, getNote, deleteNote, parseMultipart, MAX_STORAGE } = require('./lib/storage');
+        listNotes, saveNote, getNote, deleteNote, parseMultipart, invalidateSizeCache, MAX_STORAGE } = require('./lib/storage');
 const { doScrape, listSessions, getSession, deleteSession, transferSession } = require('./lib/scraper');
+
+// ===== 加载环境变量 =====
+const envPath = path.join(__dirname, '.env');
+if (fs.existsSync(envPath)) {
+  fs.readFileSync(envPath, 'utf8').split('\n').forEach(line => {
+    const eq = line.indexOf('=');
+    if (eq > 0) process.env[line.slice(0, eq).trim()] = line.slice(eq + 1).trim();
+  });
+}
 
 const PORT = 3000;
 const ROOT = __dirname;
@@ -74,6 +83,18 @@ const server = http.createServer(async (req, res) => {
     const result = deleteFile(name);
     if (result.error) return sendJSON(res, 404, result);
     return sendJSON(res, 200, result);
+  }
+  // 重命名文件
+  if (p.startsWith('/api/files/rename/') && m === 'PUT') {
+    const name = decodeURIComponent(p.slice('/api/files/rename/'.length));
+    const body = parseJSON(await readBody(req));
+    if (!body?.newName) return sendJSON(res, 400, { error: 'no new name' });
+    const oldPath = getFilePath(name);
+    if (!oldPath) return sendJSON(res, 404, { error: 'not found' });
+    const newPath = path.join(path.dirname(oldPath), body.newName);
+    if (fs.existsSync(newPath)) return sendJSON(res, 409, { error: 'name exists' });
+    fs.renameSync(oldPath, newPath);
+    return sendJSON(res, 200, { ok: true, name: body.newName });
   }
   if (p.startsWith('/api/dl/')) {
     const name = decodeURIComponent(p.slice('/api/dl/'.length));
@@ -143,6 +164,132 @@ const server = http.createServer(async (req, res) => {
     return res.end(m3u);
   }
 
+  // 翻译（流式）
+  if (p === '/api/translate' && m === 'POST') {
+    const body = parseJSON(await readBody(req));
+    if (!body?.text) return sendJSON(res, 400, { error: 'no text' });
+    const from = body.from || 'auto';
+    const to = body.to || 'zh';
+    const apiKey = process.env.DEEPSEEK_API_KEY;
+    if (!apiKey) return sendJSON(res, 500, { error: 'API key not configured' });
+    
+    // 流式转发
+    try {
+      const aiResp = await fetch('https://api.deepseek.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
+        body: JSON.stringify({
+          model: 'deepseek-chat',
+          stream: true,
+          messages: [{
+            role: 'system',
+            content: `你是一个专业翻译。将用户输入${from === 'auto' ? '' : '从' + from}翻译成${to}。只输出译文，不要解释。`
+          }, {
+            role: 'user',
+            content: body.text.slice(0, 8000)
+          }],
+          max_tokens: 4000, temperature: 0.1,
+        }),
+      });
+      
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      });
+      
+      // 把 DeepSeek 的 SSE 流直接转发给客户端
+      for await (const chunk of aiResp.body) {
+        res.write(chunk);
+      }
+      res.end();
+    } catch(e) {
+      sendJSON(res, 500, { error: e.message });
+    }
+    return;
+  }
+
+  // AI 配音 (Edge TTS)
+  if (p === '/api/tts' && m === 'POST') {
+    const body = parseJSON(await readBody(req));
+    if (!body?.text) return sendJSON(res, 400, { error: 'no text' });
+    const voice = body.voice || 'zh-CN-XiaoxiaoNeural';
+    const { spawn } = require('child_process');
+    const os = require('os');
+    const tmpFile = path.join(os.tmpdir(), 'tts_' + Date.now() + '.mp3');
+    try {
+      await new Promise((resolve, reject) => {
+        const proc = spawn('python3', ['-c', 'import edge_tts,asyncio,sys\nasync def main():\n tts=edge_tts.Communicate(sys.argv[1],sys.argv[2])\n await tts.save(sys.argv[3])\nasyncio.run(main())', body.text.slice(0, 3000), voice, tmpFile]);
+        let err = '';
+        proc.stderr.on('data', d => err += d.toString());
+        proc.on('close', code => code === 0 ? resolve() : reject(new Error(err.slice(0, 200))));
+      });
+      const buf = fs.readFileSync(tmpFile);
+      fs.unlinkSync(tmpFile);
+      res.writeHead(200, { 'Content-Type': 'audio/mpeg', 'Content-Length': buf.length });
+      res.end(buf);
+    } catch(e) {
+      sendJSON(res, 500, { error: 'TTS failed: ' + e.message });
+    }
+    return;
+  }
+
+  // AI 多模型对话
+  if (p === '/api/ai/chat' && m === 'POST') {
+    const body = parseJSON(await readBody(req));
+    const messages = body?.messages;
+    const model = body?.model || 'deepseek-chat';
+    if (!messages?.length) return sendJSON(res, 400, { error: 'no messages' });
+    
+    // 根据模型选择 API
+    let apiUrl, apiKey, reqBody;
+    
+    if (model === 'doubao-pro') {
+      apiUrl = 'https://ark.cn-beijing.volces.com/api/v3/chat/completions';
+      apiKey = process.env.DOUBAO_ACCESS_KEY;
+      reqBody = { model: 'ep-20250428123456-abcde', messages, stream: true, temperature: body.temperature ?? 0.7 };
+    } else if (model === 'qwen-max') {
+      apiUrl = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
+      apiKey = process.env.QWEN_API_KEY;
+      reqBody = { model: 'qwen-max', messages, stream: true, temperature: body.temperature ?? 0.7 };
+    } else if (model === 'moonshot-v1') {
+      apiUrl = 'https://api.moonshot.cn/v1/chat/completions';
+      apiKey = process.env.KIMI_API_KEY;
+      reqBody = { model: 'moonshot-v1-8k', messages, stream: true, temperature: body.temperature ?? 0.7 };
+    } else if (model === 'doubao') {
+      apiUrl = 'https://ark.cn-beijing.volces.com/api/v3/chat/completions';
+      apiKey = 'ark-b02179bf-67a7-4e6e-8350-6fc2763e100a-d58b0';
+      reqBody = { model: 'ep-20260428200424-z6vzp', messages, stream: true, temperature: body.temperature ?? 0.7 };
+    } else {
+      apiUrl = 'https://api.deepseek.com/v1/chat/completions';
+      apiKey = process.env.DEEPSEEK_API_KEY;
+      reqBody = { model, messages, stream: true, temperature: body.temperature ?? 0.7 };
+    }
+    
+    if (!apiKey) return sendJSON(res, 500, { error: 'API key not configured for ' + model });
+    
+    try {
+      const aiResp = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
+        body: JSON.stringify(reqBody),
+      });
+      
+      if (!aiResp.ok) {
+        const err = await aiResp.text().catch(() => '');
+        return sendJSON(res, 502, { error: model + ' API error: ' + aiResp.status + ' ' + err.slice(0, 100) });
+      }
+      
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      });
+      for await (const chunk of aiResp.body) { res.write(chunk); }
+      res.end();
+    } catch(e) { sendJSON(res, 500, { error: e.message }); }
+    return;
+  }
   if (p.startsWith('/api/preview/')) {
     const name = decodeURIComponent(p.slice('/api/preview/'.length));
     const preview = getFilePreview(name);
@@ -178,9 +325,9 @@ const server = http.createServer(async (req, res) => {
     const body = parseJSON(await readBody(req));
     if (!body || !body.urls || !body.urls.length) return sendJSON(res, 400, { error: '请输入至少一个网址' });
     const type = body.type || 'both';
-    if (!['text', 'images', 'both'].includes(type)) return sendJSON(res, 400, { error: 'type 只能是 text/images/both' });
+    if (!['text', 'images', 'both', 'video', 'music'].includes(type)) return sendJSON(res, 400, { error: 'type 只能是 text/images/both/video/music' });
     try {
-      const result = await doScrape(body.urls, type);
+      const result = await doScrape(body.urls, type, { minWidth: body.minWidth || 0, minHeight: body.minHeight || 0, followDetail: body.followDetail !== false, deepRender: body.deepRender !== false });
       return sendJSON(res, 200, result);
     } catch (e) {
       return sendJSON(res, 500, { error: e.message });
@@ -201,8 +348,79 @@ const server = http.createServer(async (req, res) => {
     const sid = p.slice('/api/scrape/transfer/'.length);
     const body = parseJSON(await readBody(req));
     const transferred = transferSession(sid, body?.items || []);
+    if (transferred.length) invalidateSizeCache();
     return sendJSON(res, 200, { ok: true, transferred });
   }
+  // --- 壁纸专用：自动压缩大图 ---
+  if (p.startsWith('/api/wallpaper/')) {
+    const fname = decodeURIComponent(p.slice('/api/wallpaper/'.length));
+    const fpath = getFilePath(fname);
+    if (!fpath) { res.writeHead(404); return res.end('404'); }
+    try {
+      const sharp = require('sharp');
+      const ext = path.extname(fname).toLowerCase();
+      // 只处理光栅图片，SVG 直接返回
+      if (ext === '.svg') {
+        const buf = fs.readFileSync(fpath);
+        res.writeHead(200, { 'Content-Type': 'image/svg+xml', 'Content-Length': buf.length, 'Cache-Control': 'max-age=86400' });
+        return res.end(buf);
+      }
+      // 用 sharp 读取 metadata 判断是否需要压缩
+      const meta = await sharp(fpath).metadata();
+      const needResize = (meta.width || 9999) > 2560 || (meta.height || 9999) > 1600;
+      const needCompress = (meta.format === 'png' && (fs.statSync(fpath).size > 500000));
+      if (!needResize && !needCompress) {
+        // 图片不大，直接返回
+        const buf = fs.readFileSync(fpath);
+        const mimes = { '.jpg':'image/jpeg','.jpeg':'image/jpeg','.png':'image/png','.gif':'image/gif','.webp':'image/webp' };
+        res.writeHead(200, { 'Content-Type': mimes[ext]||'image/jpeg', 'Content-Length': buf.length, 'Cache-Control': 'max-age=86400' });
+        return res.end(buf);
+      }
+      // 压缩：缩放到 2560px 以内，PNG 转 JPEG
+      const pipeline = sharp(fpath).resize(2560, 1600, { fit: 'inside', withoutEnlargement: true });
+      const outBuf = needCompress ? await pipeline.jpeg({ quality: 85, progressive: true }).toBuffer()
+        : await pipeline.toBuffer();
+      res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Content-Length': outBuf.length,
+        'Cache-Control': 'max-age=86400' });
+      return res.end(outBuf);
+    } catch {
+      // sharp 失败时返回原图
+      const buf = fs.readFileSync(fpath);
+      res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Content-Length': buf.length, 'Cache-Control': 'max-age=3600' });
+      return res.end(buf);
+    }
+  }
+
+  // --- 采集缩略图 ---
+  if (p.startsWith('/api/scrape/thumb/')) {
+    const rest = p.slice('/api/scrape/thumb/'.length);
+    const [sid, ...nameParts] = rest.split('/');
+    const imgPath = path.join(ROOT, 'scrape', sid, 'images', nameParts.join('/'));
+    if (!fs.existsSync(imgPath)) { res.writeHead(404); return res.end('404'); }
+    try {
+      const sharp = require('sharp');
+      const buf = await sharp(imgPath).resize(200, 150, { fit: 'inside' }).jpeg({ quality: 70 }).toBuffer();
+      res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Content-Length': buf.length,
+        'Cache-Control': 'public, max-age=86400' });
+      return res.end(buf);
+    } catch { res.writeHead(500); return res.end('thumb error'); }
+  }
+
+  // --- 采集文本读取 ---
+  if (p.startsWith('/api/scrape/text/')) {
+    const rest = p.slice('/api/scrape/text/'.length);
+    const slashIdx = rest.indexOf('/');
+    if (slashIdx === -1) { res.writeHead(404); return res.end('404'); }
+    const sid = rest.slice(0, slashIdx);
+    const fname = rest.slice(slashIdx + 1);
+    const fpath = path.join(ROOT, 'scrape', sid, fname);
+    if (!fs.existsSync(fpath)) { res.writeHead(404); return res.end('404'); }
+    const text = fs.readFileSync(fpath, 'utf8').slice(0, 30000);
+    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Content-Length': Buffer.byteLength(text) });
+    return res.end(text);
+  }
+
+  // --- 采集图片 ---
   if (p.startsWith('/api/scrape/img/')) {
     const rest = p.slice('/api/scrape/img/'.length);
     const [sid, ...nameParts] = rest.split('/');
