@@ -27,11 +27,30 @@ function sendJSON(res, code, data) {
   res.end(JSON.stringify(data));
 }
 
-function readBody(req) {
+function readBody(req, maxMemory = Infinity) {
   return new Promise((resolve, reject) => {
     const chunks = [];
-    req.on('data', c => chunks.push(c));
-    req.on('end', () => resolve(Buffer.concat(chunks)));
+    let total = 0;
+    let tmpFile = null, tmpStream = null;
+    req.on('data', c => {
+      total += c.length;
+      if (!tmpFile && total > maxMemory) {
+        // 超过内存限制，切换到临时文件
+        tmpFile = path.join(require('os').tmpdir(), 'upload_' + Date.now());
+        tmpStream = fs.createWriteStream(tmpFile);
+        for (const prev of chunks) tmpStream.write(prev);
+        chunks.length = 0;
+      }
+      if (tmpStream) tmpStream.write(c);
+      else chunks.push(c);
+    });
+    req.on('end', () => {
+      if (tmpStream) {
+        tmpStream.end(() => resolve({ path: tmpFile }));
+      } else {
+        resolve(Buffer.concat(chunks));
+      }
+    });
     req.on('error', reject);
   });
 }
@@ -73,7 +92,12 @@ const server = http.createServer(async (req, res) => {
     const ct = req.headers['content-type'] || '';
     const match = ct.match(/boundary=(.+)/);
     if (!match) return sendJSON(res, 400, { error: 'need multipart' });
-    const parts = parseMultipart(await readBody(req), match[1]);
+    const raw = await readBody(req, 50 * 1024 * 1024); // 超过50MB走磁盘
+    let buf;
+    // readBody 返回 Buffer 或 {path}
+    if (raw.path) { buf = fs.readFileSync(raw.path); fs.unlinkSync(raw.path); }
+    else buf = raw;
+    const parts = parseMultipart(buf, match[1]);
     const result = uploadFiles(parts, MAX_STORAGE);
     if (result.error) return sendJSON(res, result.error === 'no file' ? 400 : 413, result);
     return sendJSON(res, 200, result);
