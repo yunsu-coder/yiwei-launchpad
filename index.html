@@ -563,13 +563,24 @@ fileInput.addEventListener('change', () => { uploadFiles(fileInput.files); fileI
 async function uploadFiles(fileList) {
   if (!fileList.length) return;
   const prog = document.getElementById('uploadProgress');
-  prog.textContent = `上传中... 0/${fileList.length}`;
-  let ok = 0;
-  for (let i = 0; i < fileList.length; i++) {
-    const form = new FormData(); form.append('file', fileList[i]);
-    const r = await fetch('/api/files', { method: 'POST', body: form });
-    if (r.ok) { ok++; } else { try { const e = await r.json(); toast('❌ ' + e.error); } catch {} }
-    prog.textContent = `上传中... ${i + 1}/${fileList.length}`;
+  let ok = 0, done = 0;
+  
+  // 并发上传，每次最多3个
+  const CONCUR = 3;
+  for (let i = 0; i < fileList.length; i += CONCUR) {
+    const batch = Array.from(fileList).slice(i, i + CONCUR);
+    const results = await Promise.allSettled(
+      batch.map(async (file) => {
+        const form = new FormData(); form.append('file', file);
+        const r = await fetch('/api/files', { method: 'POST', body: form });
+        if (r.ok) return true;
+        try { const e = await r.json(); toast('❌ ' + e.error); } catch {}
+        return false;
+      })
+    );
+    results.forEach(r => { if (r.value === true) ok++; });
+    done += batch.length;
+    prog.textContent = `上传中... ${done}/${fileList.length}`;
     await updateStorageBar();
   }
   prog.textContent = '';
