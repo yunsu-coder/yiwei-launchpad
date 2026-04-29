@@ -429,6 +429,7 @@ function switchPanel(name) {
     stopAutoSave();
   }
   currentPanel = name;
+  location.hash = name; // 保存当前面板，刷新后恢复
   document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
   document.querySelector(`[data-panel="${name}"]`).classList.add('active');
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
@@ -1372,6 +1373,13 @@ document.addEventListener('mouseup', function(e) {
   // 3秒后自动消失
   setTimeout(() => popup.remove(), 3000);
 });
+
+// ===== 刷新恢复面板 =====
+(function(){
+  const hash = location.hash.slice(1);
+  const valid = ['home','files','notes','scrape','read'];
+  if (hash && valid.includes(hash)) switchPanel(hash);
+})();
 </script>
 </body>
 </html>
