@@ -64,7 +64,7 @@ function renderVideoPlayer(url, name) {
   content.style.cssText = "display:block;text-align:center;background:var(--bg);border-radius:10px;";
   content.innerHTML = `
     <div class="vp-container">
-      <video id="mainVideo" preload="auto" style="max-width:100%;max-height:55vh;display:block;width:100%;cursor:pointer;background:#000;" src="/api/view/${encodeURIComponent(name)}">
+      <video id="mainVideo" preload="metadata" playsinline style="max-width:100%;max-height:55vh;display:block;width:100%;cursor:pointer;background:#000;" src="/api/view/${encodeURIComponent(name)}">
       </video>
       <div class="vp-loading" id="vpLoading" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#fff;font-size:1.5rem;pointer-events:none;">⏳ 加载中...</div>
       <div class="vp-controls" id="vpControls">
@@ -72,7 +72,7 @@ function renderVideoPlayer(url, name) {
         <span id="vpTime" class="vp-time">00:00 / 00:00</span>
         <input type="range" id="vpProgress" class="vp-progress" value="0" min="0" max="100" oninput="vpSeek(this.value)" title="进度">
         <input type="range" id="vpVolume" class="vp-volume" value="100" min="0" max="100" oninput="vpSetVolume(this.value)" title="音量">
-        <select id="vpQuality" onchange="switchQuality(this.value)" style="background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:4px;padding:.2rem;font-size:.7rem;cursor:pointer;">
+        <select id="vpQuality" onchange="switchQuality(this.value)" style="background:#333;color:#fff;border:1px solid #555;border-radius:4px;padding:.2rem .4rem;font-size:.75rem;cursor:pointer;">
           <option value="orig" selected>原始</option>
           <option value="1080">1080p</option>
           <option value="720">720p</option>
