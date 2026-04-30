@@ -399,6 +399,14 @@
 <!-- 采集 -->
 <div class="panel" id="panel-scrape">
   <h2 style="margin-bottom:.8rem;">🔍 网页采集</h2>
+  <div style="display:flex;gap:.3rem;margin-bottom:.7rem;flex-wrap:wrap;">
+    <span style="font-size:.75rem;color:var(--sub);line-height:2;">快捷：</span>
+    <button class="btn-sm" onclick="fillScrapeUrl('bilibili')">📺 B站</button>
+    <button class="btn-sm" onclick="fillScrapeUrl('music')">🎵 音乐</button>
+    <button class="btn-sm" onclick="fillScrapeUrl('xiaohongshu')">📕 小红书</button>
+    <button class="btn-sm" onclick="fillScrapeUrl('movie')">🎬 电影</button>
+    <button class="btn-sm" onclick="fillScrapeUrl('doc')">📄 文档</button>
+  </div>
   <div class="scrape-form">
     <textarea id="scrapeUrls" placeholder="支持三种方式：&#10;① 智能展开：粘贴两个 URL，自动找出数字差异并生成全部中间值&#10;② {起-止} 模式：https://site.com/page/{1-50}.html&#10;③ 多行直接输入，每行一个 URL"></textarea>
     <div class="scrape-opts">
@@ -492,5 +500,6 @@
 <div class="toast" id="toast"></div>
 
 <script src="/js/app.js"></script>
+<script src="/js/scrape.js"></script>
 </body>
 </html>
