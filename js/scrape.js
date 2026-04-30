@@ -116,43 +116,91 @@ async function startScrape() {
 
   const prog = document.getElementById('scrapeProgress');
   const btn = document.querySelector('#panel-scrape .btn.accent');
-  const batchInfo = urls.length > 1 ? '（智能展开 ' + urls.length + ' 个 URL）' : '';
-  prog.innerHTML = '🔍 正在采集...' + batchInfo + '<br><small>' + escHtml(urls[0]) + '</small>';
   btn.disabled = true; btn.textContent = '⏳ 采集中...';
 
-  try {
-    const r = await fetch('/api/scrape', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ urls, type }),
-    });
-    const result = await r.json();
-    prog.innerHTML = '';
-    btn.disabled = false; btn.textContent = '🚀 开始采集';
+  // 实时显示：逐个采集，结果即时追加
+  const sessionsEl = document.getElementById('scrapeSessions');
+  const empty = document.getElementById('scrapeEmpty');
+  empty.style.display = 'none';
 
-    if (r.ok) {
-      const imgs = result.imageCount || 0;
-      const txts = result.textCount || 0;
-      const errs = result.errorCount || 0;
-      const tp = type;
-      const fileLabel = tp === 'video' ? '个视频' : tp === 'music' ? '个音频' : '张图片';
-      const allLabel = tp === 'video' ? '视频' : tp === 'music' ? '音频' : '图片';
-      if (imgs + txts === 0) {
-        toast('⚠️ 未采集到内容' + (errs > 0 ? '（' + errs + '个页面失败）' : ''));
+  // 累计统计
+  let totalImgs = 0, totalTxts = 0, totalErrs = 0, done = 0;
+  const allSessionIds = [];
+
+  for (let i = 0; i < urls.length; i++) {
+    const url = urls[i];
+    prog.innerHTML = `🔍 采集中 ${i + 1}/${urls.length}...<br><small>${escHtml(url.slice(0, 60))}</small>`;
+
+    try {
+      const r = await fetch('/api/scrape', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ urls: [url], type }),
+      });
+      const result = await r.json();
+      done++;
+      if (r.ok && result.sessionId) {
+        totalImgs += result.imageCount || 0;
+        totalTxts += result.textCount || 0;
+        totalErrs += result.errorCount || 0;
+        allSessionIds.push(result.sessionId);
+        // 实时追加到列表顶部
+        prependSessionCard(result);
       } else {
-        const parts = [];
-        if (imgs > 0) parts.push(imgs + fileLabel);
-        if (txts > 0) parts.push(txts + '个文本');
-        toast('✅ 采集完成：' + parts.join(', ') + (errs > 0 ? ', ' + errs + '个失败' : ''));
+        totalErrs++;
       }
-      loadScrapeSessions();
-    } else {
-      toast('❌ ' + (result.error || '采集失败'));
+    } catch(e) {
+      totalErrs++;
     }
-  } catch(e) {
-    prog.innerHTML = '';
-    btn.disabled = false; btn.textContent = '🚀 开始采集';
-    toast('❌ 请求失败：' + e.message);
   }
+
+  prog.innerHTML = '';
+  btn.disabled = false; btn.textContent = '🚀 开始采集';
+
+  if (done > 0) {
+    const labels = type === 'video' ? '个视频' : type === 'music' ? '个音频' : '张图片';
+    const parts = [];
+    if (totalImgs > 0) parts.push(totalImgs + labels);
+    if (totalTxts > 0) parts.push(totalTxts + '个文本');
+    toast('✅ 采集完成：' + (parts.join(', ') || done + '个页面') + (totalErrs > 0 ? ', ' + totalErrs + '个失败' : ''));
+  } else {
+    toast('⚠️ 全部采集失败');
+  }
+}
+
+/** 在列表顶部插入采集结果卡片（实时显示） */
+function prependSessionCard(result) {
+  const el = document.getElementById('scrapeSessions');
+  const tp = result.type;
+  const typeLabel = tp === 'images' ? '📷 图片' : tp === 'text' ? '📄 文本' : tp === 'video' ? '🎬 视频' : tp === 'music' ? '🎵 音频' : '📷📄 图片+文本';
+  const fileLabel = tp === 'video' ? '个视频' : tp === 'music' ? '个音频' : '张图片';
+  const s = result;
+  let imgPreview = '';
+  if (s.imageCount > 0 && s.type !== 'video' && s.type !== 'music') {
+    const imgs = s.images || [];
+    const show = imgs.slice(0, 3);
+    const more = imgs.length - 3;
+    imgPreview = `<div class="sc-preview" style="cursor:pointer;" onclick="expandScrapeImages('${s.sessionId}')">` +
+      show.map(img => `<img loading="lazy" src="/api/scrape/img/${s.sessionId}/${img.name}" title="${escHtml(img.name)}">`).join('') +
+      (more > 0 ? `<span class="sc-more-badge">+${more}</span>` : '') + `</div>`;
+  }
+  const card = document.createElement('div');
+  card.className = 'scrape-card';
+  card.setAttribute('data-sid', s.sessionId);
+  card.innerHTML = `
+    <div class="sc-header">
+      <input type="checkbox" class="file-check scrape-check" data-sid="${s.sessionId}" onchange="updateScrapeBatchBar()" onclick="event.stopPropagation()" style="flex-shrink:0;margin-right:.4rem;">
+      <div>
+        <div class="sc-title">🌐 ${escHtml(s.title || s.url)}</div>
+        <div class="sc-meta">${new Date(s.time).toLocaleString('zh-CN')} · ${s.urlCount}个页面 · ${typeLabel}</div>
+      </div>
+    </div>
+    ${imgPreview}
+    <div class="sc-meta">共 ${s.imageCount} ${fileLabel}, ${s.textCount} 个文本${s.errorCount > 0 ? `, ⚠️ ${s.errorCount} 个失败` : ''}</div>
+    <div class="sc-actions">
+      <button class="btn-sm" onclick="transferScrape('${s.sessionId}')">📁 转存到文件</button>
+      <button class="btn-sm danger" onclick="delScrapeSession('${s.sessionId}')">🗑 删除</button>
+    </div>`;
+  el.insertBefore(card, el.firstChild);
 }
 
 async function loadScrapeSessions() {
