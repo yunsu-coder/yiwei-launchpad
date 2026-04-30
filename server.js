@@ -592,7 +592,7 @@ const server = http.createServer(async (req, res) => {
     const { spawn } = require('child_process');
     const args = [
       fp, '--no-sout-all', '--sout-keep',
-      '--sout', `#transcode{vcodec=${isVideo?'h264':'none'},venc=x264{preset=ultrafast,tune=zerolatency},vb=${preset.vb},width=${preset.w},height=${preset.h},acodec=${isVideo?'aac':'mp3'},ab=${preset.ab},channels=2}:std{access=file,mux=ts,dst=-}`,
+      '--sout', `#transcode{vcodec=${isVideo?'h264':'none'},venc=x264{preset=ultrafast,tune=zerolatency},vb=${preset.vb},width=${preset.w},height=${preset.h},acodec=${isVideo?'aac':'mp3'},ab=${preset.ab},channels=2}:std{access=file,mux=mp4,frag,faststart,dst=-}`,
       'vlc://quit',
     ];
     const vlc = spawn('cvlc', args, { stdio: ['ignore', 'pipe', 'pipe'] });
@@ -602,7 +602,7 @@ const server = http.createServer(async (req, res) => {
     vlc.on('close', code => {
       if (!res.headersSent) { res.writeHead(500); res.end('VLC:' + code + ' ' + stderr.slice(0,200)); }
     });
-    res.writeHead(200, { 'Content-Type': isVideo ? 'video/MP2T' : 'audio/mpeg', 'Transfer-Encoding': 'chunked', 'Cache-Control': 'no-cache' });
+    res.writeHead(200, { 'Content-Type': isVideo ? 'video/mp4' : 'audio/mpeg', 'Transfer-Encoding': 'chunked', 'Cache-Control': 'no-cache' });
     vlc.stdout.pipe(res);
     req.on('close', () => { vlc.kill(); });
     return;
