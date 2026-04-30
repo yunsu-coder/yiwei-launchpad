@@ -376,6 +376,37 @@ function closePreview() {
 
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closePreview(); });
 
+// ===== Del 键删除 =====
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Delete') return;
+  // 不在输入框内才触发
+  const tag = document.activeElement?.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || document.activeElement?.isContentEditable) return;
+  
+  if (currentPanel === 'files') {
+    const checked = document.querySelectorAll('.file-check:checked');
+    if (checked.length) { batchDelete(); return; }
+  }
+  if (currentPanel === 'notes' && currentNoteId) { deleteNote(); return; }
+  if (currentPanel === 'scrape') {
+    const sessions = document.querySelectorAll('.scrape-card');
+    for (const card of sessions) {
+      const btn = card.querySelector('.btn-sm.danger');
+      if (btn) {
+        const onclick = btn.getAttribute('onclick') || '';
+        const sidMatch = onclick.match(/delScrapeSession\('([^']+)'\)/);
+        if (sidMatch && confirm('确定删除这条采集记录？')) {
+          delScrapeSession(sidMatch[1]);
+        }
+        break;
+      }
+    }
+    return;
+  }
+  if (currentPanel === 'trash') { emptyTrash(); return; }
+  if (currentPanel === 'read' && currentBook) { closeReader(); return; }
+});
+
 function copyLink(name) {
   const url = location.origin + '/api/dl/' + encodeURIComponent(name);
   navigator.clipboard.writeText(url).then(() => toast('📋 链接已复制')).catch(() => toast('❌ 复制失败'));
