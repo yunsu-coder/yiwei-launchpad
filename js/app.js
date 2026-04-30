@@ -28,11 +28,17 @@ document.querySelectorAll('.nav-item').forEach(btn => {
 });
 
 // ===== 主题 =====
+const themeBtn = document.getElementById('themeBtn');
 if (localStorage.getItem('theme') === 'dark') document.body.classList.add('dark');
-document.getElementById('themeBtn').addEventListener('click', () => {
+updateThemeIcon();
+themeBtn.addEventListener('click', () => {
   document.body.classList.toggle('dark');
   localStorage.setItem('theme', document.body.classList.contains('dark') ? 'dark' : 'light');
+  updateThemeIcon();
 });
+function updateThemeIcon() {
+  themeBtn.textContent = document.body.classList.contains('dark') ? 'light_mode' : 'dark_mode';
+}
 
 // ===== Toast =====
 let toastTimer;
