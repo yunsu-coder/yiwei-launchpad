@@ -1,14 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <defs>
-    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#4a7c59"/>
-      <stop offset="100%" style="stop-color:#2d5a3f"/>
-    </linearGradient>
-  </defs>
-  <rect width="100" height="100" rx="22" fill="url(#g)"/>
-  <!-- 芦苇叶 -->
-  <path d="M25 80 Q50 20 75 80" stroke="#c4d9a8" stroke-width="2.5" fill="none" opacity="0.6"/>
-  <path d="M35 78 Q55 30 70 75" stroke="#c4d9a8" stroke-width="2" fill="none" opacity="0.5"/>
-  <!-- 苇字 -->
-  <text x="50" y="68" text-anchor="middle" font-size="48" font-weight="bold" font-family="'PingFang SC','Microsoft YaHei','Noto Sans SC',sans-serif" fill="#f0f4e8">苇</text>
+  <!-- 苇草茎 -->
+  <path d="M50 95 Q52 50 45 10" stroke="#4a7c59" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <!-- 叶片 -->
+  <path d="M48 80 Q20 65 10 50" stroke="#5a9a6a" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <path d="M47 65 Q75 50 85 35" stroke="#4a7c59" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <path d="M46 50 Q15 40 8 25" stroke="#6aad78" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <path d="M45 30 Q70 15 80 5" stroke="#4a7c59" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <!-- 穗 -->
+  <path d="M45 10 Q38 0 42 -2" stroke="#7ab888" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <path d="M45 10 Q50 -2 48 -4" stroke="#7ab888" stroke-width="2" fill="none" stroke-linecap="round"/>
 </svg>
