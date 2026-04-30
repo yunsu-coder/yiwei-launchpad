@@ -62,11 +62,12 @@ function renderVideoPlayer(url, name) {
   playerQuality = '720';
   const content = document.getElementById("playerContent");
   content.style.cssText = "display:block;text-align:center;background:var(--bg);border-radius:10px;";
+  const streamUrl = "/api/stream/" + encodeURIComponent(name) + "?q=720";
   content.innerHTML = `
     <div class="vp-container">
-      <video id="mainVideo" preload="metadata" playsinline style="max-width:100%;max-height:55vh;display:block;width:100%;cursor:pointer;background:#000;" src="/api/view/${encodeURIComponent(name)}">
+      <video id="mainVideo" preload="none" playsinline style="max-width:100%;max-height:55vh;display:block;width:100%;cursor:pointer;background:#000;" src="${streamUrl}">
       </video>
-      <div class="vp-loading" id="vpLoading" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#fff;font-size:1.5rem;pointer-events:none;">⏳ 加载中...</div>
+      <div class="vp-big-play" id="vpBigPlay" onclick="vpBigPlay()" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;cursor:pointer;color:#fff;">\n        <span class="mi" style="font-size:4rem;">play_circle</span>\n        <div style="font-size:.8rem;color:#aaa;">720p</div>\n      </div>\n      <div class="vp-loading" id="vpLoading" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#fff;font-size:1.5rem;pointer-events:none;display:none;">⏳ 加载中...</div>
       <div class="vp-controls" id="vpControls">
         <button class="vp-btn" onclick="vpPlayPause()" id="vpPlayBtn"><span class="mi">play_arrow</span></button>
         <span id="vpTime" class="vp-time">00:00 / 00:00</span>
@@ -74,7 +75,6 @@ function renderVideoPlayer(url, name) {
         <input type="range" id="vpVolume" class="vp-volume" value="100" min="0" max="100" oninput="vpSetVolume(this.value)" title="音量">
         <select id="vpQuality" onchange="switchQuality(this.value)" style="background:#333;color:#fff;border:1px solid #555;border-radius:4px;padding:.2rem .4rem;font-size:.75rem;cursor:pointer;">
           <option value="orig">原始</option>
-          <option value="1080">1080p</option>
           <option value="720" selected>720p</option>
           <option value="480">480p</option>
         </select>
@@ -122,7 +122,13 @@ function bindVideoEvents() {
   if (vpPlayBtn) vpPlayBtn.querySelector('.mi').textContent = 'play_arrow';
 
   video.addEventListener('click', () => vpPlayPause());
-  video.addEventListener('play', () => { if (vpPlayBtn) vpPlayBtn.querySelector('.mi').textContent = 'pause'; });
+  video.addEventListener('play', () => { 
+    if (vpPlayBtn) vpPlayBtn.querySelector('.mi').textContent = 'pause'; 
+    const overlay = document.getElementById('vpBigPlay');
+    if (overlay) overlay.style.display = 'none';
+    const loading = document.getElementById('vpLoading');
+    if (loading) loading.style.display = 'none';
+  });
   video.addEventListener('pause', () => { if (vpPlayBtn) vpPlayBtn.querySelector('.mi').textContent = 'play_arrow'; });
   video.addEventListener('waiting', () => { const ld = document.getElementById('vpLoading'); if (ld) ld.style.display = 'block'; });
   video.addEventListener('canplay', () => { const ld = document.getElementById('vpLoading'); if (ld) ld.style.display = 'none'; });
@@ -175,6 +181,15 @@ function bindAudioEvents() {
     document.getElementById('vpTime').textContent = fmtTime(audio.currentTime) + ' / ' + fmtTime(audio.duration);
   });
   audio.addEventListener('ended', () => vpNext());
+}
+
+function vpBigPlay() {
+  const video = document.getElementById("mainVideo");
+  const overlay = document.getElementById("vpBigPlay");
+  if (!video) return;
+  overlay.style.display = "none";
+  document.getElementById("vpLoading").style.display = "block";
+  video.play();
 }
 
 function vpPlayPause() {
