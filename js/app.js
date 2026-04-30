@@ -1148,3 +1148,77 @@ document.addEventListener('mouseup', function(e) {
   setInterval(addParticle, 40);
   draw();
 })();
+
+// ===== 图片粘贴 & 拖拽 =====
+(function(){
+  const ta = document.getElementById('noteContent');
+  if (!ta) return;
+
+  ta.addEventListener('paste', async (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        const ext = item.type.split('/')[1] || 'png';
+        const name = 'note_' + Date.now() + '.' + ext;
+        await uploadNoteImage(item.getAsFile(), name);
+        break;
+      }
+    }
+  });
+
+  ta.addEventListener('drop', async (e) => {
+    const files = e.dataTransfer?.files;
+    if (!files?.length) return;
+    for (const file of files) {
+      if (file.type.startsWith('image/')) {
+        e.preventDefault();
+        const name = 'note_' + Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9.]/g, '_');
+        await uploadNoteImage(file, name);
+      }
+    }
+  });
+  ta.addEventListener('dragover', (e) => { e.preventDefault(); });
+})();
+
+function insertImage() {
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = 'image/*';
+  input.onchange = async () => {
+    const file = input.files?.[0];
+    if (file) {
+      const name = 'note_' + Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9.]/g, '_');
+      await uploadNoteImage(file, name);
+    }
+  };
+  input.click();
+}
+
+async function uploadNoteImage(blob, name) {
+  const ta = document.getElementById('noteContent');
+  const s = ta.selectionStart;
+  const v = ta.value;
+  const placeholder = '![上传中...]()';
+  ta.value = v.slice(0, s) + placeholder + v.slice(s);
+  renderLive();
+  try {
+    const form = new FormData();
+    form.append('file', blob, name);
+    const r = await fetch('/api/files?notes=1', { method: 'POST', body: form });
+    const data = await r.json();
+    if (data.uploaded?.length) {
+      const fname = data.uploaded[0].name;
+      const url = '/api/view/' + encodeURIComponent(fname);
+      const md = '![](' + url + ')';
+      ta.value = ta.value.replace(placeholder, md);
+    } else {
+      ta.value = ta.value.replace(placeholder, '');
+      toast('❌ 图片上传失败');
+    }
+  } catch(e) {
+    ta.value = ta.value.replace(placeholder, '');
+    toast('❌ 上传失败：' + e.message);
+  }
+  renderLive();
+}
