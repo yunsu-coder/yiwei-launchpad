@@ -1061,3 +1061,53 @@ document.addEventListener('mouseup', function(e) {
   const valid = ['home','files','notes','scrape','read','trash'];
   if (hash && valid.includes(hash)) switchPanel(hash);
 })();
+
+// ===== 鼠标特效 =====
+(function(){
+  const canvas = document.createElement('canvas');
+  canvas.style.cssText = 'position:fixed;top:0;left:0;pointer-events:none;z-index:9999;';
+  document.body.appendChild(canvas);
+  const ctx = canvas.getContext('2d');
+  let w, h;
+  const particles = [];
+  const maxParticles = 30;
+  let mouseX = -100, mouseY = -100;
+  const colors = ['#818cf8','#a78bfa','#f472b6','#34d399','#fbbf24','#60a5fa'];
+
+  function resize() { w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight; }
+  resize();
+  window.addEventListener('resize', resize);
+
+  document.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
+
+  function addParticle() {
+    if (particles.length >= maxParticles) particles.shift();
+    particles.push({
+      x: mouseX, y: mouseY,
+      vx: (Math.random() - 0.5) * 2,
+      vy: (Math.random() - 0.5) * 2,
+      life: 1,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      size: Math.random() * 4 + 2,
+    });
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, w, h);
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.life -= 0.02;
+      if (p.life <= 0) { particles.splice(i, 1); continue; }
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+      ctx.fillStyle = p.color + Math.floor(p.life * 255).toString(16).padStart(2,'0');
+      ctx.fill();
+    }
+    requestAnimationFrame(draw);
+  }
+
+  setInterval(addParticle, 40);
+  draw();
+})();
