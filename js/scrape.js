@@ -176,7 +176,7 @@ async function loadScrapeSessions() {
         const show = imgs.slice(0, 3);
         const more = imgs.length - 3;
         imgPreview = `<div class="sc-preview" style="cursor:pointer;" onclick="expandScrapeImages('${s.sessionId}')">` +
-          show.map(img => `<img src="/api/scrape/img/${s.sessionId}/${img.name}" title="${escHtml(img.name)}">`).join('') +
+          show.map(img => `<img loading="lazy" src="/api/scrape/img/${s.sessionId}/${img.name}" title="${escHtml(img.name)}">`).join('') +
           (more > 0 ? `<span class="sc-more-badge">+${more}</span>` : '') +
           `</div>`;
       }
@@ -415,7 +415,7 @@ function expandScrapeImages(sid) {
         ${imgs.map((img, i) => `
           <label style="position:relative;cursor:pointer;">
             <input type="checkbox" class="sc-file-check" data-name="${img.name}" style="position:absolute;top:2px;left:2px;z-index:2;">
-            <img src="/api/scrape/img/${sid}/${img.name}" style="width:100px;height:75px;object-fit:cover;border-radius:4px;border:1px solid var(--border);" title="${escHtml(img.name)}">
+            <img loading="lazy" src="/api/scrape/img/${sid}/${img.name}" style="width:100px;height:75px;object-fit:cover;border-radius:4px;border:1px solid var(--border);" title="${escHtml(img.name)}">
           </label>`).join('')}
       </div>`;
   }).catch(() => { panelEl.innerHTML = '<div style="padding:.5rem;color:var(--danger);">❌ 加载失败</div>'; });

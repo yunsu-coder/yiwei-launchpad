@@ -9,7 +9,7 @@ const { getStatus, listFiles, uploadFiles, deleteFile, getFilePath, getFilePrevi
         listNotes, saveNote, getNote, deleteNote, parseMultipart, invalidateSizeCache, MAX_STORAGE,
         createFolder, deleteFolder, renameFolder, emptyTrash, listTrash, restoreFromTrash,
         scanDir, breadcrumb, FILES_DIR } = require('./lib/storage');
-const { doScrape, listSessions, getSession, deleteSession, transferSession, scrapeTieba } = require('./lib/scraper');
+const { doScrape, listSessions, getSession, deleteSession, transferSession, invalidateSessionCache, scrapeTieba } = require('./lib/scraper');
 
 // ===== 加载环境变量 =====
 const envPath = path.join(__dirname, '.env');
