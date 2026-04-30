@@ -323,14 +323,16 @@
     <input type="file" id="fileInput" style="display:none" multiple>
   </div>
   <div id="uploadProgress" style="margin-bottom:.5rem;font-size:.8rem;color:var(--accent);"></div>
-  <!-- 搜索 & 排序 -->
-  <div style="display:flex;gap:.5rem;margin-bottom:.8rem;align-items:center;">
-    <input type="text" id="fileSearch" placeholder="搜索文件名..." oninput="loadFiles()" style="flex:1;padding:.4rem .6rem;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:.85rem;outline:none;">
+  <!-- 搜索 & 排序 & 操作 -->
+  <div style="display:flex;gap:.5rem;margin-bottom:.8rem;align-items:center;flex-wrap:wrap;">
+    <input type="text" id="fileSearch" placeholder="搜索文件名..." oninput="loadFiles()" style="flex:1;padding:.4rem .6rem;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:.85rem;outline:none;min-width:120px;">
     <select id="fileSort" onchange="loadFiles()" style="padding:.4rem .6rem;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:.8rem;">
       <option value="date-desc">时间↓</option><option value="date-asc">时间↑</option>
       <option value="name-asc">名称 A-Z</option><option value="name-desc">名称 Z-A</option>
       <option value="size-desc">大小↓</option><option value="size-asc">大小↑</option>
     </select>
+    <button class="btn-sm" onclick="createFolder()" title="新建文件夹">📁＋</button>
+    <button class="btn-sm" onclick="toggleTrash()" title="回收站">🗑️</button>
   </div>
   <div id="batchBar" style="display:none;align-items:center;gap:.5rem;margin-bottom:.5rem;padding:.4rem .6rem;background:var(--card);border:1px solid var(--border);border-radius:8px;font-size:.8rem;">
     <label style="display:flex;align-items:center;gap:.3rem;cursor:pointer;"><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"> 全选</label>
@@ -339,6 +341,17 @@
   </div>
   <div class="file-list" id="fileList"></div>
   <div class="empty-state" id="filesEmpty">暂无文件，上传一个吧</div>
+
+  <!-- 回收站 -->
+  <div id="trashPanel" style="display:none;margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border);">
+    <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem;">
+      <h3 style="margin:0;font-size:.85rem;">🗑️ 回收站</h3>
+      <button class="btn-sm danger" onclick="emptyTrash()" style="margin-left:auto;">清空回收站</button>
+      <button class="btn-sm" onclick="toggleTrash()">✕ 关闭</button>
+    </div>
+    <div class="file-list" id="trashList"></div>
+    <div class="empty-state" id="trashEmpty" style="display:none;">回收站为空</div>
+  </div>
 </div>
 
 <!-- 笔记 -->
@@ -347,6 +360,7 @@
   <div class="notes-layout">
     <div class="notes-sidebar">
       <button class="btn-new" onclick="newNote()">＋ 新建笔记</button>
+      <input type="text" id="noteSearch" placeholder="搜索笔记..." oninput="loadNoteList()" style="width:100%;padding:.4rem .6rem;border:1px solid var(--border);border-radius:7px;background:var(--card);color:var(--text);font-size:.8rem;outline:none;margin-top:.3rem;">
       <div id="noteList"></div>
     </div>
     <div class="note-editor" id="noteEditor" style="display:none;">
@@ -662,20 +676,21 @@ async function loadFiles() {
     if (!files.length) { list.innerHTML = ''; empty.style.display = 'block'; return; }
     empty.style.display = 'none';
     const sz = b => b < 1024 ? b + 'B' : b < 1024*1024 ? (b/1024).toFixed(1)+'KB' : b < 1024*1024*1024 ? (b/1024/1024).toFixed(1)+'MB' : (b/1024/1024/1024).toFixed(2)+'GB';
-    list.innerHTML = files.map(f => `
+    list.innerHTML = files.map(f => {
+      const isDir = f.isDir;
+      const icon = isDir ? '📁' : '📄';
+      const actions = isDir
+        ? `<button class="btn-sm" onclick="renameFolder('${escAttr(f.name)}')">✏️</button><button class="btn-sm danger" onclick="deleteFolder('${escAttr(f.name)}')">🗑</button>`
+        : `<button class="btn-sm" onclick="previewFile('${escAttr(f.name)}')">预览</button><button class="btn-sm" onclick="copyLink('${escAttr(f.name)}')">复制链接</button><button class="btn-sm" onclick="downloadFile('${escAttr(f.name)}')">下载</button><button class="btn-sm danger" onclick="delFile('${escAttr(f.name)}')">删除</button>`;
+      return `
       <div class="file-row">
         <input type="checkbox" class="file-check" data-name="${escAttr(f.name)}" onchange="updateBatchBar()" style="flex-shrink:0;">
-        <span class="fname">📄 ${escHtml(f.name)}</span>
-        <span class="fsize">${sz(f.size)}</span>
+        <span class="fname">${icon} ${escHtml(f.name)}</span>
+        <span class="fsize">${isDir ? '' : sz(f.size)}</span>
         <span class="fsize">${new Date(f.mtime).toLocaleDateString('zh-CN')}</span>
-        <div class="actions">
-          <button class="btn-sm" onclick="previewFile('${escAttr(f.name)}')">预览</button>
-          <button class="btn-sm" onclick="copyLink('${escAttr(f.name)}')">复制链接</button>
-          <button class="btn-sm" onclick="downloadFile('${escAttr(f.name)}')">下载</button>
-          <button class="btn-sm danger" onclick="delFile('${escAttr(f.name)}')">删除</button>
-        </div>
-      </div>
-    `).join('');
+        <div class="actions">${actions}</div>
+      </div>`;
+    }).join('');
   } catch(e) { console.error(e); }
 }
 
@@ -799,6 +814,72 @@ async function batchDelete() {
   loadFiles(); updateStorageBar();
 }
 
+// ===== 文件夹 & 回收站 =====
+async function createFolder() {
+  const name = prompt('请输入文件夹名称:');
+  if (!name || !name.trim()) return;
+  const r = await fetch('/api/folders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name.trim() }) });
+  const data = await r.json();
+  if (data.error) { toast('❌ ' + data.error); return; }
+  toast('✅ 文件夹已创建：' + name.trim());
+  loadFiles();
+}
+
+async function deleteFolder(name) {
+  if (!confirm('确定删除文件夹「' + name + '」？内容将移入回收站')) return;
+  await fetch('/api/folders/' + encodeURIComponent(name), { method: 'DELETE' });
+  toast('🗑️ 文件夹已移入回收站');
+  loadFiles(); updateStorageBar();
+}
+
+async function renameFolder(name) {
+  const newName = prompt('新名称:', name);
+  if (!newName || !newName.trim()) return;
+  const r = await fetch('/api/folders/rename/' + encodeURIComponent(name), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ newName: newName.trim() }) });
+  const data = await r.json();
+  if (data.error) { toast('❌ ' + data.error); return; }
+  toast('✅ 已重命名');
+  loadFiles();
+}
+
+async function toggleTrash() {
+  const panel = document.getElementById('trashPanel');
+  if (panel.style.display === 'block') { panel.style.display = 'none'; return; }
+  panel.style.display = 'block';
+  await loadTrash();
+}
+
+async function loadTrash() {
+  try {
+    const items = await (await fetch('/api/trash')).json();
+    const el = document.getElementById('trashList');
+    const empty = document.getElementById('trashEmpty');
+    if (!items.length) { el.innerHTML = ''; empty.style.display = 'block'; return; }
+    empty.style.display = 'none';
+    el.innerHTML = items.map(f => `
+      <div class="file-row">
+        <span class="fname">${f.isDir ? '📁' : '📄'} ${escHtml(f.name.replace(/^\d+_/, ''))}</span>
+        <span class="fsize">${fmtFileSize(f.size)}</span>
+        <div class="actions">
+          <button class="btn-sm" onclick="restoreTrash('${escAttr(f.name)}')">↩ 恢复</button>
+        </div>
+      </div>`).join('');
+  } catch(e) { console.error(e); }
+}
+
+async function emptyTrash() {
+  if (!confirm('确定清空回收站？此操作不可恢复！')) return;
+  await fetch('/api/trash', { method: 'DELETE' });
+  toast('🗑️ 回收站已清空');
+  loadTrash(); updateStorageBar();
+}
+
+async function restoreTrash(name) {
+  const r = await fetch('/api/trash/restore/' + encodeURIComponent(name), { method: 'POST' });
+  if (r.ok) { toast('✅ 已恢复'); loadTrash(); loadFiles(); updateStorageBar(); }
+  else { toast('❌ 恢复失败'); }
+}
+
 // ===== 笔记 =====
 let currentNoteId = null, noteDirty = false, autoSaveTimer = null;
 function isNoteDirty() { return noteDirty; }
@@ -881,9 +962,11 @@ function renderLive() { document.getElementById('notePreview').innerHTML = md2ht
 
 async function loadNotesList() {
   try {
-    const notes = await (await fetch('/api/notes')).json();
+    const q = document.getElementById('noteSearch')?.value || '';
+    const url = '/api/notes' + (q ? '?q=' + encodeURIComponent(q) : '');
+    const notes = await (await fetch(url)).json();
     const list = document.getElementById('noteList');
-    if (!notes.length) { list.innerHTML = '<div class="empty-state">还没有笔记</div>'; return; }
+    if (!notes.length) { list.innerHTML = '<div class="empty-state">' + (q ? '无匹配笔记' : '还没有笔记') + '</div>'; return; }
     list.innerHTML = notes.map(n => `<div class="note-list-item${currentNoteId === n.id ? ' active' : ''}" onclick="openNote('${n.id}')"><span class="ntitle">${escHtml(n.title || '无标题')}</span><span class="ndate">${new Date(n.updated).toLocaleDateString('zh-CN')}</span></div>`).join('');
   } catch(e) { console.error(e); }
 }
