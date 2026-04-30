@@ -42,12 +42,28 @@ function openPlayer(name) {
   startMiniPlayer(name, url, playerType);
 }
 
+let playerQuality = '720';
+
+function switchQuality(q) {
+  playerQuality = q;
+  const video = document.getElementById('mainVideo');
+  if (!video || !playerCurrent) return;
+  const url = '/api/stream/' + encodeURIComponent(playerCurrent) + '?q=' + q;
+  const ct = video.currentTime;
+  const wasPlaying = !video.paused;
+  video.src = url;
+  video.currentTime = ct;
+  if (wasPlaying) video.play();
+}
+
 function renderVideoPlayer(url, name) {
+  playerQuality = '720';
+  document.getElementById('vpQuality').value = '720';
   const content = document.getElementById('playerContent');
   content.innerHTML = `
     <div class="vp-container">
       <video id="mainVideo" preload="auto" style="max-width:100%;max-height:55vh;display:block;width:100%;cursor:pointer;background:#000;">
-        <source src="${url}" type="video/mp4">
+        <source src="/api/stream/${encodeURIComponent(name)}?q=${playerQuality}" type="video/MP2T">
       </video>
       <div class="vp-loading" id="vpLoading" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#fff;font-size:1.5rem;pointer-events:none;">⏳ 加载中...</div>
       <div class="vp-controls" id="vpControls">
@@ -55,6 +71,12 @@ function renderVideoPlayer(url, name) {
         <span id="vpTime" class="vp-time">00:00 / 00:00</span>
         <input type="range" id="vpProgress" class="vp-progress" value="0" min="0" max="100" oninput="vpSeek(this.value)" title="进度">
         <input type="range" id="vpVolume" class="vp-volume" value="100" min="0" max="100" oninput="vpSetVolume(this.value)" title="音量">
+        <select id="vpQuality" onchange="switchQuality(this.value)" style="background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:4px;padding:.2rem;font-size:.7rem;cursor:pointer;">
+          <option value="orig">原始</option>
+          <option value="1080">1080p</option>
+          <option value="720" selected>720p</option>
+          <option value="480">480p</option>
+        </select>
         <button class="vp-btn" onclick="togglePiP()"><span class="mi">picture_in_picture</span></button>
         <button class="vp-btn" onclick="vpFullscreen()"><span class="mi">fullscreen</span></button>
         <button class="vp-btn" onclick="vpNext()"><span class="mi">skip_next</span></button>

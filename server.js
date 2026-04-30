@@ -567,6 +567,47 @@ const server = http.createServer(async (req, res) => {
     return res.end(buf);
   }
 
+  // --- VLC 实时转码流 ---
+  if (p.startsWith('/api/stream/') && m === 'GET') {
+    const name = decodeURIComponent(p.slice('/api/stream/'.length));
+    const quality = url.searchParams.get('q') || '720';
+    const fp = getFilePath(name);
+    if (!fp) { res.writeHead(404); return res.end('404'); }
+    const stat = fs.statSync(fp);
+    const presets = {
+      '480': { w: 854, h: 480, vb: 800, ab: 96 },
+      '720': { w: 1280, h: 720, vb: 2000, ab: 128 },
+      '1080': { w: 1920, h: 1080, vb: 4000, ab: 192 },
+    };
+    const preset = presets[quality];
+    if (!preset && quality !== 'orig') return sendJSON(res, 400, { error: 'quality must be 480/720/1080/orig' });
+    const ext = path.extname(name).toLowerCase();
+    const isVideo = ['.mp4','.webm','.mov','.mkv'].includes(ext);
+    const isAudio = ['.mp3','.wav','.ogg','.flac','.aac','.m4a'].includes(ext);
+    if (quality === 'orig') {
+      const mime = isVideo ? 'video/mp4' : isAudio ? 'audio/mpeg' : 'application/octet-stream';
+      res.writeHead(200, { 'Content-Type': mime, 'Content-Length': stat.size, 'Accept-Ranges': 'bytes' });
+      return fs.createReadStream(fp).pipe(res);
+    }
+    const { spawn } = require('child_process');
+    const args = [
+      fp, '--no-sout-all', '--sout-keep',
+      '--sout', `#transcode{vcodec=${isVideo?'h264':'none'},venc=x264{preset=ultrafast,tune=zerolatency},vb=${preset.vb},width=${preset.w},height=${preset.h},acodec=${isVideo?'aac':'mp3'},ab=${preset.ab},channels=2}:std{access=file,mux=ts,dst=-}`,
+      'vlc://quit',
+    ];
+    const vlc = spawn('cvlc', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    let stderr = '';
+    vlc.stderr.on('data', d => { stderr += d.toString(); });
+    vlc.on('error', () => { if (!res.headersSent) { res.writeHead(500); res.end('VLC error'); } });
+    vlc.on('close', code => {
+      if (!res.headersSent) { res.writeHead(500); res.end('VLC:' + code + ' ' + stderr.slice(0,200)); }
+    });
+    res.writeHead(200, { 'Content-Type': isVideo ? 'video/MP2T' : 'audio/mpeg', 'Transfer-Encoding': 'chunked', 'Cache-Control': 'no-cache' });
+    vlc.stdout.pipe(res);
+    req.on('close', () => { vlc.kill(); });
+    return;
+  }
+
   // --- 静态文件 ---
   // 允许加载 node_modules 中的库
   if (p.startsWith('/lib/')) {
