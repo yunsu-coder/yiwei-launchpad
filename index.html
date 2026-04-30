@@ -711,10 +711,10 @@ async function loadFiles() {
       if (f.isDir) {
         // 文件夹：点击进入目录
         return `
-        <div class="file-row" style="cursor:pointer;" onclick="navigateTo('${escAttr(f.relPath)}')" 
+        <div class="file-row" style="cursor:default;" onclick="toggleFileCheck(event, '${escAttr(f.relPath)}')"
              ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, '${escAttr(f.relPath)}')">
           <input type="checkbox" class="file-check" data-name="${escAttr(f.relPath)}" onclick="event.stopPropagation();updateBatchBar();" style="flex-shrink:0;">
-          <span class="fname">📁 ${escHtml(f.name)}</span>
+          <span class="fname" style="cursor:pointer;" onclick="event.stopPropagation();navigateTo('${escAttr(f.relPath)}')" title="进入目录">📁 ${escHtml(f.name)}</span>
           <span class="fsize"></span>
           <span class="fsize">${new Date(f.mtime).toLocaleDateString('zh-CN')}</span>
           <div class="actions" onclick="event.stopPropagation();">
@@ -725,10 +725,10 @@ async function loadFiles() {
       }
       // 文件：点击预览
       return `
-        <div class="file-row" style="cursor:pointer;" onclick="previewFile('${escAttr(f.relPath)}')" 
+        <div class="file-row" style="cursor:default;" onclick="toggleFileCheck(event, '${escAttr(f.relPath)}')"
              draggable="true" ondragstart="handleDragStart(event, '${escAttr(f.relPath)}')" ondragend="handleDragEnd(event)">
           <input type="checkbox" class="file-check" data-name="${escAttr(f.relPath)}" onclick="event.stopPropagation();updateBatchBar();" style="flex-shrink:0;">
-          <span class="fname">📄 ${escHtml(f.name)}</span>
+          <span class="fname" style="cursor:pointer;" onclick="event.stopPropagation();previewFile('${escAttr(f.relPath)}')" title="点击预览">📄 ${escHtml(f.name)}</span>
           <span class="fsize">${f.isDir ? '' : sz(f.size)}</span>
           <span class="fsize">${new Date(f.mtime).toLocaleDateString('zh-CN')}</span>
           <div class="actions" onclick="event.stopPropagation();">
@@ -860,6 +860,13 @@ async function ocrImage(name) {
 
 // ===== 拖拽移动 =====
 let dragItems = [];
+
+function toggleFileCheck(e, name) {
+  // 点击行空白区域：切换勾选
+  const row = e.currentTarget;
+  const cb = row.querySelector('.file-check');
+  if (cb) { cb.checked = !cb.checked; updateBatchBar(); }
+}
 
 function handleDragStart(e, name) {
   // 如果有多选，拖拽所有选中的文件
