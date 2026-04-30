@@ -323,6 +323,8 @@
     <input type="file" id="fileInput" style="display:none" multiple>
   </div>
   <div id="uploadProgress" style="margin-bottom:.5rem;font-size:.8rem;color:var(--accent);"></div>
+  <!-- 面包屑导航 -->
+  <div id="fileBreadcrumb" style="display:flex;gap:.3rem;align-items:center;margin-bottom:.6rem;font-size:.8rem;flex-wrap:wrap;"></div>
   <!-- 搜索 & 排序 & 操作 -->
   <div style="display:flex;gap:.5rem;margin-bottom:.8rem;align-items:center;flex-wrap:wrap;">
     <input type="text" id="fileSearch" placeholder="搜索文件名..." oninput="loadFiles()" style="flex:1;padding:.4rem .6rem;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:.85rem;outline:none;min-width:120px;">
@@ -630,14 +632,14 @@ async function uploadFiles(fileList) {
   const prog = document.getElementById('uploadProgress');
   let ok = 0, done = 0;
   
-  // 并发上传，每次最多3个
+  const uploadUrl = '/api/files' + (currentDir ? '?dir=' + encodeURIComponent(currentDir) : '');
   const CONCUR = 3;
   for (let i = 0; i < fileList.length; i += CONCUR) {
     const batch = Array.from(fileList).slice(i, i + CONCUR);
     const results = await Promise.allSettled(
       batch.map(async (file) => {
         const form = new FormData(); form.append('file', file);
-        const r = await fetch('/api/files', { method: 'POST', body: form });
+        const r = await fetch(uploadUrl, { method: 'POST', body: form });
         if (r.ok) return true;
         try { const e = await r.json(); toast('❌ ' + e.error); } catch {}
         return false;
@@ -653,14 +655,37 @@ async function uploadFiles(fileList) {
   loadFiles();
 }
 
+// ===== 文件模块（支持目录导航）=====
+let currentDir = '';
+
+function navigateTo(dir) {
+  currentDir = dir || '';
+  loadFiles();
+}
+
 async function loadFiles() {
   try {
-    let files = await (await fetch('/api/files')).json();
-    
+    const params = new URLSearchParams();
+    if (currentDir) params.set('dir', currentDir);
+    const resp = await (await fetch('/api/files?' + params.toString())).json();
+    const files = resp.files || [];
+    const crumbs = resp.breadcrumb || [];
+    currentDir = resp.currentDir || '';
+
+    // 面包屑
+    const bc = document.getElementById('fileBreadcrumb');
+    bc.innerHTML = crumbs.map((c, i) => {
+      const sep = i > 0 ? '<span style="color:var(--sub);">/</span>' : '';
+      if (i === crumbs.length - 1) {
+        return sep + '<span style="font-weight:600;color:var(--accent);">' + c.name + '</span>';
+      }
+      return sep + '<a href="#" onclick="navigateTo(\'' + escAttr(c.path) + '\');return false;" style="color:var(--accent);text-decoration:none;">' + c.name + '</a>';
+    }).join('');
+
     // 搜索过滤
     const q = (document.getElementById('fileSearch')?.value || '').trim().toLowerCase();
-    if (q) files = files.filter(f => f.name.toLowerCase().includes(q));
-    
+    let filtered = q ? files.filter(f => f.name.toLowerCase().includes(q)) : files;
+
     // 排序
     const sort = document.getElementById('fileSort')?.value || 'date-desc';
     const sorters = {
@@ -671,25 +696,43 @@ async function loadFiles() {
       'size-desc': (a,b) => b.size - a.size,
       'size-asc': (a,b) => a.size - b.size,
     };
-    files.sort(sorters[sort] || sorters['date-desc']);
+    filtered.sort(sorters[sort] || sorters['date-desc']);
+
     const list = document.getElementById('fileList'), empty = document.getElementById('filesEmpty');
-    if (!files.length) { list.innerHTML = ''; empty.style.display = 'block'; return; }
+    if (!filtered.length) { list.innerHTML = ''; empty.style.display = 'block'; return; }
     empty.style.display = 'none';
+
     const sz = b => b < 1024 ? b + 'B' : b < 1024*1024 ? (b/1024).toFixed(1)+'KB' : b < 1024*1024*1024 ? (b/1024/1024).toFixed(1)+'MB' : (b/1024/1024/1024).toFixed(2)+'GB';
-    list.innerHTML = files.map(f => {
-      const isDir = f.isDir;
-      const icon = isDir ? '📁' : '📄';
-      const actions = isDir
-        ? `<button class="btn-sm" onclick="renameFolder('${escAttr(f.name)}')">✏️</button><button class="btn-sm danger" onclick="deleteFolder('${escAttr(f.name)}')">🗑</button>`
-        : `<button class="btn-sm" onclick="previewFile('${escAttr(f.name)}')">预览</button><button class="btn-sm" onclick="copyLink('${escAttr(f.name)}')">复制链接</button><button class="btn-sm" onclick="downloadFile('${escAttr(f.name)}')">下载</button><button class="btn-sm" onclick="moveFile('${escAttr(f.name)}')">📁 移动</button><button class="btn-sm danger" onclick="delFile('${escAttr(f.name)}')">删除</button>`;
+
+    list.innerHTML = filtered.map(f => {
+      if (f.isDir) {
+        // 文件夹：点击进入目录
+        return `
+        <div class="file-row" style="cursor:pointer;" onclick="navigateTo('${escAttr(f.relPath)}')">
+          <input type="checkbox" class="file-check" data-name="${escAttr(f.relPath)}" onchange="updateBatchBar();event.stopPropagation();" style="flex-shrink:0;">
+          <span class="fname">📁 ${escHtml(f.name)}</span>
+          <span class="fsize"></span>
+          <span class="fsize">${new Date(f.mtime).toLocaleDateString('zh-CN')}</span>
+          <div class="actions" onclick="event.stopPropagation();">
+            <button class="btn-sm" onclick="renameFolder('${escAttr(f.relPath)}')">✏️</button>
+            <button class="btn-sm danger" onclick="deleteFolder('${escAttr(f.relPath)}')">🗑</button>
+          </div>
+        </div>`;
+      }
+      // 文件：点击预览
       return `
-      <div class="file-row">
-        <input type="checkbox" class="file-check" data-name="${escAttr(f.name)}" onchange="updateBatchBar()" style="flex-shrink:0;">
-        <span class="fname">${icon} ${escHtml(f.name)}</span>
-        <span class="fsize">${isDir ? '' : sz(f.size)}</span>
-        <span class="fsize">${new Date(f.mtime).toLocaleDateString('zh-CN')}</span>
-        <div class="actions">${actions}</div>
-      </div>`;
+        <div class="file-row" style="cursor:pointer;" onclick="previewFile('${escAttr(f.relPath)}')">
+          <input type="checkbox" class="file-check" data-name="${escAttr(f.relPath)}" onchange="updateBatchBar();event.stopPropagation();" style="flex-shrink:0;">
+          <span class="fname">📄 ${escHtml(f.name)}</span>
+          <span class="fsize">${f.isDir ? '' : sz(f.size)}</span>
+          <span class="fsize">${new Date(f.mtime).toLocaleDateString('zh-CN')}</span>
+          <div class="actions" onclick="event.stopPropagation();">
+            <button class="btn-sm" onclick="copyLink('${escAttr(f.relPath)}')">复制链接</button>
+            <button class="btn-sm" onclick="downloadFile('${escAttr(f.relPath)}')">下载</button>
+            <button class="btn-sm" onclick="moveFile('${escAttr(f.relPath)}')">📁 移动</button>
+            <button class="btn-sm danger" onclick="delFile('${escAttr(f.relPath)}')">删除</button>
+          </div>
+        </div>`;
     }).join('');
   } catch(e) { console.error(e); }
 }
@@ -791,19 +834,27 @@ async function delFile(name) {
 }
 
 async function moveFile(name) {
-  // 获取所有可用文件夹
-  const files = await (await fetch('/api/files')).json();
-  const folders = [...new Set(files.filter(f => f.isDir).map(f => {
-    // 提取顶级文件夹名
-    const parts = f.name.split('/');
-    return parts[0];
-  }))];
+  // 获取所有文件夹（递归扫描）
+  const resp = await (await fetch('/api/files')).json();
+  const allFiles = resp.files || [];
+  // 也扫描子目录
+  let allDirs = allFiles.filter(f => f.isDir).map(f => f.relPath || f.name);
+  // 递归获取所有子目录
+  for (const dir of allDirs.slice()) {
+    try {
+      const sub = await (await fetch('/api/files?dir=' + encodeURIComponent(dir))).json();
+      for (const f of (sub.files || [])) {
+        if (f.isDir) allDirs.push(f.relPath);
+      }
+    } catch {}
+  }
+  allDirs = [...new Set(allDirs)];
   
   let target = prompt(
-    '移动到哪个文件夹？\n（输入文件夹名，留空移到根目录）\n\n可用文件夹：' + (folders.length ? folders.join(', ') : '（无）'),
+    '移动到哪个文件夹？\n（输入路径，留空移到根目录）\n\n可用文件夹：\n' + (allDirs.length ? allDirs.join('\n') : '（无）'),
     ''
   );
-  if (target === null) return; // 用户取消
+  if (target === null) return;
   target = (target || '').trim();
   
   const r = await fetch('/api/files/move', {
@@ -871,10 +922,11 @@ async function batchDelete() {
 async function createFolder() {
   const name = prompt('请输入文件夹名称:');
   if (!name || !name.trim()) return;
-  const r = await fetch('/api/folders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name.trim() }) });
+  const folderPath = currentDir ? currentDir + '/' + name.trim() : name.trim();
+  const r = await fetch('/api/folders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: folderPath }) });
   const data = await r.json();
   if (data.error) { toast('❌ ' + data.error); return; }
-  toast('✅ 文件夹已创建：' + name.trim());
+  toast('✅ 文件夹已创建');
   loadFiles();
 }
 
@@ -1409,8 +1461,9 @@ let readerType = null; // 'epub' | 'pdf' | 'txt' | 'image' | 'video' | 'audio'
 
 async function loadReaderBooks() {
   try {
-    const files = await (await fetch('/api/files')).json();
-    const books = files.filter(f => READABLE_EXTS.includes(f.name.split('.').pop().toLowerCase()));
+    const resp = await (await fetch('/api/files')).json();
+    const files = resp.files || [];
+    const books = files.filter(f => !f.isDir && READABLE_EXTS.includes(f.name.split('.').pop().toLowerCase()));
     const el = document.getElementById('readerBooks');
     const empty = document.getElementById('readerEmpty');
     if (!books.length) { el.innerHTML = ''; empty.style.display = 'block'; return; }

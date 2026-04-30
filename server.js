@@ -8,7 +8,7 @@ const { URL } = require('url');
 const { getStatus, listFiles, uploadFiles, deleteFile, getFilePath, getFilePreview,
         listNotes, saveNote, getNote, deleteNote, parseMultipart, invalidateSizeCache, MAX_STORAGE,
         createFolder, deleteFolder, renameFolder, emptyTrash, listTrash, restoreFromTrash,
-        scanDir, FILES_DIR } = require('./lib/storage');
+        scanDir, breadcrumb, FILES_DIR } = require('./lib/storage');
 const { doScrape, listSessions, getSession, deleteSession, transferSession, scrapeTieba } = require('./lib/scraper');
 
 // ===== 加载环境变量 =====
@@ -111,18 +111,22 @@ const server = http.createServer(async (req, res) => {
   }
 
   // --- 文件 ---
-  if (p === '/api/files' && m === 'GET') return sendJSON(res, 200, listFiles());
+  if (p === '/api/files' && m === 'GET') {
+    const dirRel = url.searchParams.get('dir') || '';
+    const result = { files: listFiles(dirRel), breadcrumb: breadcrumb(dirRel), currentDir: dirRel };
+    return sendJSON(res, 200, result);
+  }
   if (p === '/api/files' && m === 'POST') {
     const ct = req.headers['content-type'] || '';
     const match = ct.match(/boundary=(.+)/);
     if (!match) return sendJSON(res, 400, { error: 'need multipart' });
-    const raw = await readBody(req, 50 * 1024 * 1024); // 超过50MB走磁盘
+    const raw = await readBody(req, 50 * 1024 * 1024);
     let buf;
-    // readBody 返回 Buffer 或 {path}
     if (raw.path) { buf = fs.readFileSync(raw.path); fs.unlinkSync(raw.path); }
     else buf = raw;
     const parts = parseMultipart(buf, match[1]);
-    const result = uploadFiles(parts, MAX_STORAGE);
+    const subDir = url.searchParams.get('dir') || '';
+    const result = uploadFiles(parts, MAX_STORAGE, subDir);
     if (result.error) return sendJSON(res, result.error === 'no file' ? 400 : 413, result);
     return sendJSON(res, 200, result);
   }
