@@ -225,14 +225,15 @@ async function loadFiles() {
     const crumbs = resp.breadcrumb || [];
     currentDir = resp.currentDir || '';
 
-    // 面包屑
+    // 面包屑（所有节点都是拖放目标）
     const bc = document.getElementById('fileBreadcrumb');
     bc.innerHTML = crumbs.map((c, i) => {
       const sep = i > 0 ? '<span style="color:var(--sub);">/</span>' : '';
-      if (i === crumbs.length - 1) {
-        return sep + '<span style="font-weight:600;color:var(--accent);">' + c.name + '</span>';
-      }
-      return sep + '<a href="#" onclick="navigateTo(\'' + escAttr(c.path) + '\');return false;" style="color:var(--accent);text-decoration:none;">' + c.name + '</a>';
+      const isLast = i === crumbs.length - 1;
+      const cls = isLast ? 'style="font-weight:600;color:var(--accent);"' :
+        'href="#" onclick="navigateTo(\'' + escAttr(c.path) + '\');return false;" style="color:var(--accent);text-decoration:none;"';
+      const drag = `ondragover="event.preventDefault();event.currentTarget.style.outline='2px solid var(--accent)'" ondragleave="event.currentTarget.style.outline=''" ondrop="event.currentTarget.style.outline='';handleDrop(event, '${escAttr(c.path)}')"`;
+      return sep + '<span ' + drag + ' ' + cls + '>' + c.name + '</span>';
     }).join('');
 
     // 搜索过滤
