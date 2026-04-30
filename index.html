@@ -293,6 +293,9 @@
   <button class="nav-item" data-panel="read">
     <span class="nav-icon">👁️</span><span>预览</span>
   </button>
+  <button class="nav-item" data-panel="trash">
+    <span class="nav-icon">🗑️</span><span>回收站</span>
+  </button>
   <button class="theme-btn" id="themeBtn" title="主题">🌓</button>
 </nav>
 
@@ -337,7 +340,7 @@
       <option value="size-desc">大小↓</option><option value="size-asc">大小↑</option>
     </select>
     <button class="btn-sm" onclick="createFolder()" title="新建文件夹">📁＋</button>
-    <button class="btn-sm" onclick="toggleTrash()" title="回收站">🗑️</button>
+    <button class="btn-sm" onclick="switchPanel('trash')" title="回收站">🗑️</button>
   </div>
   <div id="batchBar" style="display:none;align-items:center;gap:.5rem;margin-bottom:.5rem;padding:.4rem .6rem;background:var(--card);border:1px solid var(--border);border-radius:8px;font-size:.8rem;">
     <label style="display:flex;align-items:center;gap:.3rem;cursor:pointer;"><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"> 全选</label>
@@ -346,17 +349,18 @@
   </div>
   <div class="file-list" id="fileList" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, '')"></div>
   <div class="empty-state" id="filesEmpty">暂无文件，上传一个吧</div>
+</div>
 
-  <!-- 回收站 -->
-  <div id="trashPanel" style="display:none;margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border);">
-    <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem;">
-      <h3 style="margin:0;font-size:.85rem;">🗑️ 回收站</h3>
-      <button class="btn-sm danger" onclick="emptyTrash()" style="margin-left:auto;">清空回收站</button>
-      <button class="btn-sm" onclick="toggleTrash()">✕ 关闭</button>
-    </div>
-    <div class="file-list" id="trashList"></div>
-    <div class="empty-state" id="trashEmpty" style="display:none;">回收站为空</div>
+<!-- 回收站 -->
+<div class="panel" id="panel-trash">
+  <h2 style="margin-bottom:.5rem;">🗑️ 回收站</h2>
+  <p style="color:var(--sub);font-size:.8rem;margin-bottom:.8rem;">被删除的文件和文件夹会保留在这里</p>
+  <div style="display:flex;gap:.5rem;margin-bottom:.8rem;">
+    <button class="btn danger" onclick="emptyTrash()" style="font-size:.8rem;">清空回收站</button>
+    <span style="color:var(--sub);font-size:.75rem;margin-left:auto;align-self:center;" id="trashCount"></span>
   </div>
+  <div class="file-list" id="trashList"></div>
+  <div class="empty-state" id="trashEmpty">回收站为空</div>
 </div>
 
 <!-- 笔记 -->
@@ -508,6 +512,17 @@ function switchPanel(name) {
   if (name === 'notes') loadNotesList();
   if (name === 'scrape') loadScrapeSessions();
   if (name === 'read') loadReaderBooks();
+  if (name === 'trash') loadTrash();
+}
+
+function switchPanel(name) {
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  const btn = document.querySelector(`[data-panel="${name}"]`);
+  const panel = document.getElementById('panel-' + name);
+  if (btn) btn.classList.add('active');
+  if (panel) panel.classList.add('active');
+  if (name === 'trash') loadTrash();
 }
 
 document.querySelectorAll('.nav-item').forEach(btn => {
@@ -978,28 +993,30 @@ async function renameFolder(name) {
   loadFiles();
 }
 
-async function toggleTrash() {
-  const panel = document.getElementById('trashPanel');
-  if (panel.style.display === 'block') { panel.style.display = 'none'; return; }
-  panel.style.display = 'block';
-  await loadTrash();
-}
-
 async function loadTrash() {
   try {
     const items = await (await fetch('/api/trash')).json();
     const el = document.getElementById('trashList');
     const empty = document.getElementById('trashEmpty');
+    const count = document.getElementById('trashCount');
+    if (count) count.textContent = items.length + ' 个项目';
     if (!items.length) { el.innerHTML = ''; empty.style.display = 'block'; return; }
     empty.style.display = 'none';
-    el.innerHTML = items.map(f => `
-      <div class="file-row">
-        <span class="fname">${f.isDir ? '📁' : '📄'} ${escHtml(f.name.replace(/^\d+_/, ''))}</span>
-        <span class="fsize">${fmtFileSize(f.size)}</span>
-        <div class="actions">
-          <button class="btn-sm" onclick="restoreTrash('${escAttr(f.name)}')">↩ 恢复</button>
-        </div>
-      </div>`).join('');
+    const sz = b => b < 1024 ? b + 'B' : b < 1024*1024 ? (b/1024).toFixed(1)+'KB' : (b/1024*1024).toFixed(1)+'MB';
+    el.innerHTML = items.map(f => {
+      const displayName = f.name.replace(/^\d+_/, '');
+      const ext = displayName.split('.').pop()?.toLowerCase();
+      const icon = f.isDir ? '📁' : (['jpg','jpeg','png','gif','webp','svg','bmp'].includes(ext) ? '🖼️' : ['mp4','webm','mov','mkv'].includes(ext) ? '🎬' : ['mp3','wav','ogg','flac','aac'].includes(ext) ? '🎵' : '📄');
+      return `
+        <div class="file-row">
+          <span class="fname">${icon} ${escHtml(displayName)}</span>
+          <span class="fsize">${f.isDir ? '' : sz(f.size)}</span>
+          <span class="fsize">${new Date(f.mtime).toLocaleDateString('zh-CN')}</span>
+          <div class="actions">
+            <button class="btn-sm" onclick="restoreTrash('${escAttr(f.name)}')">↩ 恢复</button>
+          </div>
+        </div>`;
+    }).join('');
   } catch(e) { console.error(e); }
 }
 
