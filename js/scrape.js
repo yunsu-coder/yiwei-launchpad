@@ -147,7 +147,7 @@ async function loadScrapeSessions() {
       // 贴吧采集会话
       if (s.type === 'tieba') {
         const card = document.createElement('div');
-        card.className = 'scrape-card';
+        card.className = 'scrape-card'; card.setAttribute('data-sid', s.sessionId);
         card.innerHTML = `
           <div class="sc-header">
             <input type="checkbox" class="file-check scrape-check" data-sid="${s.sessionId}" onchange="updateScrapeBatchBar()" onclick="event.stopPropagation()" style="flex-shrink:0;margin-right:.4rem;">
@@ -197,7 +197,7 @@ async function loadScrapeSessions() {
       }
 
       const card = document.createElement('div');
-      card.className = 'scrape-card';
+      card.className = 'scrape-card'; card.setAttribute('data-sid', s.sessionId);
       card.innerHTML = `
         <div class="sc-header">
           <input type="checkbox" class="file-check scrape-check" data-sid="${s.sessionId}" onchange="updateScrapeBatchBar()" onclick="event.stopPropagation()" style="flex-shrink:0;margin-right:.4rem;">
@@ -392,46 +392,73 @@ async function batchDelScrape() {
   loadScrapeSessions();
 }
 
-// ===== 图片展开 =====
-async function expandScrapeImages(sid) {
-  const modal = document.getElementById('previewModal');
-  const body = document.getElementById('previewBody');
-  document.getElementById('previewTitle').textContent = '采集图片';
-  body.innerHTML = '<div class="file-info"><div class="fi-icon">⏳</div>加载中...</div>';
-  modal.classList.add('show');
-  try {
-    const session = await (await fetch('/api/scrape/session/' + sid)).json();
+// ===== 图片/文本内联展开 =====
+function expandScrapeImages(sid) {
+  const card = document.querySelector(`.scrape-card[data-sid="${sid}"]`);
+  if (!card) return;
+  const panel = card.querySelector('.sc-expand');
+  if (panel) { panel.remove(); return; } // 折叠
+  // 加载图片
+  const panelEl = document.createElement('div');
+  panelEl.className = 'sc-expand';
+  panelEl.innerHTML = '<div style="padding:.5rem;text-align:center;color:var(--sub);">⏳ 加载中...</div>';
+  card.appendChild(panelEl);
+  fetch('/api/scrape/session/' + sid).then(r => r.json()).then(session => {
     const imgs = session.images || [];
-    body.innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:.5rem;">' +
-      imgs.map(img => {
-        const url = '/api/scrape/img/' + sid + '/' + img.name;
-        return `<img src="${url}" onclick="window.open('${url}','_blank')" style="width:160px;height:120px;object-fit:cover;border-radius:6px;cursor:pointer;" title="${escHtml(img.name)}">`;
-      }).join('') + '</div>';
-  } catch(e) { body.innerHTML = '<div class="file-info"><div class="fi-icon">❌</div>加载失败</div>'; }
+    panelEl.innerHTML = `
+      <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem;">
+        <span style="font-size:.8rem;font-weight:600;">所有图片 (${imgs.length})</span>
+        <button class="btn-sm" onclick="saveCheckedScrapeFiles('${sid}')" style="margin-left:auto;">📁 保存勾选</button>
+        <button class="btn-sm" onclick="this.closest('.sc-expand').remove()">✕ 收起</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:.3rem;">
+        ${imgs.map((img, i) => `
+          <label style="position:relative;cursor:pointer;">
+            <input type="checkbox" class="sc-file-check" data-name="${img.name}" style="position:absolute;top:2px;left:2px;z-index:2;">
+            <img src="/api/scrape/img/${sid}/${img.name}" style="width:100px;height:75px;object-fit:cover;border-radius:4px;border:1px solid var(--border);" title="${escHtml(img.name)}">
+          </label>`).join('')}
+      </div>`;
+  }).catch(() => { panelEl.innerHTML = '<div style="padding:.5rem;color:var(--danger);">❌ 加载失败</div>'; });
 }
 
-async function expandScrapeTexts(sid) {
-  const modal = document.getElementById('previewModal');
-  const body = document.getElementById('previewBody');
-  document.getElementById('previewTitle').textContent = '采集文本';
-  body.innerHTML = '<div class="file-info"><div class="fi-icon">⏳</div>加载中...</div>';
-  modal.classList.add('show');
-  try {
-    const session = await (await fetch('/api/scrape/session/' + sid)).json();
+function expandScrapeTexts(sid) {
+  const card = document.querySelector(`.scrape-card[data-sid="${sid}"]`);
+  if (!card) return;
+  const panel = card.querySelector('.sc-expand');
+  if (panel) { panel.remove(); return; }
+  const panelEl = document.createElement('div');
+  panelEl.className = 'sc-expand';
+  panelEl.innerHTML = '<div style="padding:.5rem;text-align:center;color:var(--sub);">⏳ 加载中...</div>';
+  card.appendChild(panelEl);
+  fetch('/api/scrape/session/' + sid).then(r => r.json()).then(async session => {
     const txts = session.texts || [];
-    let html = '';
+    let html = `<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem;">
+      <span style="font-size:.8rem;font-weight:600;">所有文本 (${txts.length})</span>
+      <button class="btn-sm" onclick="saveCheckedScrapeFiles('${sid}')" style="margin-left:auto;">📁 保存勾选</button>
+      <button class="btn-sm" onclick="this.closest('.sc-expand').remove()">✕ 收起</button>
+    </div>`;
     for (const txt of txts) {
-      const url = '/api/scrape/text/' + sid + '/' + txt.name;
       try {
-        const r = await fetch(url);
-        if (r.ok) {
-          const text = await r.text();
-          html += '<details style="margin-bottom:.3rem;"><summary style="cursor:pointer;font-weight:500;">' + escHtml(txt.name) + '</summary>';
-          html += '<pre style="white-space:pre-wrap;word-break:break-word;max-height:300px;overflow:auto;background:var(--bg);padding:.5rem;border-radius:6px;font-size:.8rem;margin-top:.3rem;">' + escHtml(text) + '</pre>';
-          html += '</details>';
-        }
+        const r = await fetch('/api/scrape/text/' + sid + '/' + txt.name);
+        const text = r.ok ? await r.text() : '';
+        html += `<details style="margin-bottom:.2rem;"><summary style="cursor:pointer;font-size:.8rem;">
+          <input type="checkbox" class="sc-file-check" data-name="${txt.name}" onclick="event.stopPropagation()"> ${escHtml(txt.name)}
+        </summary>`;
+        html += `<pre style="white-space:pre-wrap;word-break:break-word;max-height:200px;overflow:auto;background:var(--bg);padding:.4rem;border-radius:4px;font-size:.75rem;margin-top:.2rem;">${escHtml(text.slice(0, 3000))}</pre></details>`;
       } catch {}
     }
-    body.innerHTML = html || '<div class="file-info"><div class="fi-icon">📄</div>无文本内容</div>';
-  } catch(e) { body.innerHTML = '<div class="file-info"><div class="fi-icon">❌</div>加载失败</div>'; }
+    panelEl.innerHTML = html;
+  }).catch(() => { panelEl.innerHTML = '<div style="padding:.5rem;color:var(--danger);">❌ 加载失败</div>'; });
+}
+
+async function saveCheckedScrapeFiles(sid) {
+  const checked = document.querySelectorAll('.sc-file-check:checked');
+  if (!checked.length) { toast('⚠️ 请先勾选文件'); return; }
+  const items = Array.from(checked).map(cb => cb.dataset.name);
+  const r = await fetch('/api/scrape/transfer/' + sid, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ items }),
+  });
+  if (r.ok) { const d = await r.json(); toast('✅ ' + (d.transferred||[]).length + ' 个文件已保存'); }
+  else { toast('❌ 保存失败'); }
 }
