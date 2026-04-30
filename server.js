@@ -527,7 +527,7 @@ const server = http.createServer(async (req, res) => {
   if (p.startsWith('/api/scrape/thumb/')) {
     const rest = p.slice('/api/scrape/thumb/'.length);
     const [sid, ...nameParts] = rest.split('/');
-    const imgPath = path.join(ROOT, 'scrape', sid, 'images', nameParts.join('/'));
+    const imgPath = path.join(ROOT, 'scrape', sid, 'images', decodeURIComponent(nameParts.join('/')));
     if (!fs.existsSync(imgPath)) { res.writeHead(404); return res.end('404'); }
     try {
       const sharp = require('sharp');
@@ -544,7 +544,7 @@ const server = http.createServer(async (req, res) => {
     const slashIdx = rest.indexOf('/');
     if (slashIdx === -1) { res.writeHead(404); return res.end('404'); }
     const sid = rest.slice(0, slashIdx);
-    const fname = rest.slice(slashIdx + 1);
+    const fname = decodeURIComponent(rest.slice(slashIdx + 1));
     const fpath = path.join(ROOT, 'scrape', sid, fname);
     if (!fs.existsSync(fpath)) { res.writeHead(404); return res.end('404'); }
     const text = fs.readFileSync(fpath, 'utf8').slice(0, 30000);
@@ -556,7 +556,7 @@ const server = http.createServer(async (req, res) => {
   if (p.startsWith('/api/scrape/img/')) {
     const rest = p.slice('/api/scrape/img/'.length);
     const [sid, ...nameParts] = rest.split('/');
-    const imgPath = path.join(ROOT, 'scrape', sid, 'images', nameParts.join('/'));
+    const imgPath = path.join(ROOT, 'scrape', sid, 'images', decodeURIComponent(nameParts.join('/')));
     if (!fs.existsSync(imgPath)) { res.writeHead(404); return res.end('404'); }
     const ext = path.extname(imgPath).toLowerCase();
     const mimes = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
