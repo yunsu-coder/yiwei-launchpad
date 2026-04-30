@@ -42,7 +42,7 @@ function openPlayer(name) {
   startMiniPlayer(name, url, playerType);
 }
 
-let playerQuality = 'orig';
+let playerQuality = '720';
 
 function switchQuality(q) {
   playerQuality = q;
@@ -59,7 +59,7 @@ function switchQuality(q) {
 }
 
 function renderVideoPlayer(url, name) {
-  playerQuality = 'orig';
+  playerQuality = '720';
   const content = document.getElementById("playerContent");
   content.style.cssText = "display:block;text-align:center;background:var(--bg);border-radius:10px;";
   content.innerHTML = `
@@ -73,9 +73,9 @@ function renderVideoPlayer(url, name) {
         <input type="range" id="vpProgress" class="vp-progress" value="0" min="0" max="100" oninput="vpSeek(this.value)" title="进度">
         <input type="range" id="vpVolume" class="vp-volume" value="100" min="0" max="100" oninput="vpSetVolume(this.value)" title="音量">
         <select id="vpQuality" onchange="switchQuality(this.value)" style="background:#333;color:#fff;border:1px solid #555;border-radius:4px;padding:.2rem .4rem;font-size:.75rem;cursor:pointer;">
-          <option value="orig" selected>原始</option>
+          <option value="orig">原始</option>
           <option value="1080">1080p</option>
-          <option value="720">720p</option>
+          <option value="720" selected>720p</option>
           <option value="480">480p</option>
         </select>
         <button class="vp-btn" onclick="togglePiP()"><span class="mi">picture_in_picture</span></button>

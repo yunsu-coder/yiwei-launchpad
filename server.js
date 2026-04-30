@@ -584,6 +584,7 @@ const server = http.createServer(async (req, res) => {
     const ext = path.extname(name).toLowerCase();
     const isVideo = ['.mp4','.webm','.mov','.mkv'].includes(ext);
     const isAudio = ['.mp3','.wav','.ogg','.flac','.aac','.m4a'].includes(ext);
+    // 原始画质：直接服务文件（带 Range 支持，浏览器自行缓冲）
     if (quality === 'orig') {
       const mime = isVideo ? 'video/mp4' : isAudio ? 'audio/mpeg' : 'application/octet-stream';
       res.writeHead(200, { 'Content-Type': mime, 'Content-Length': stat.size, 'Accept-Ranges': 'bytes' });
