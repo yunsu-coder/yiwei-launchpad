@@ -136,6 +136,12 @@ async function loadScrapeSessions() {
     if (!sessions.length) { el.innerHTML = ''; empty.style.display = 'block'; return; }
     empty.style.display = 'none';
 
+    // 批量操作栏
+    const batchBar = document.getElementById('scrapeBatchBar');
+    if (sessions.length) {
+      if (batchBar) batchBar.style.display = 'flex';
+    }
+
     el.innerHTML = '';
     for (const s of sessions) {
       // 贴吧采集会话
@@ -144,12 +150,12 @@ async function loadScrapeSessions() {
         card.className = 'scrape-card';
         card.innerHTML = `
           <div class="sc-header">
+            <input type="checkbox" class="file-check scrape-check" data-sid="${s.sessionId}" onchange="updateScrapeBatchBar()" onclick="event.stopPropagation()" style="flex-shrink:0;margin-right:.4rem;">
             <div>
               <div class="sc-title">📋 ${escHtml(s.kw || '')}吧</div>
               <div class="sc-meta">${new Date(s.time).toLocaleString('zh-CN')} · ${s.threadCount || 0}个帖子 · ${s.textSize > 1024 ? (s.textSize/1024).toFixed(1)+'KB' : (s.textSize||0)+'B'}</div>
             </div>
           </div>
-          <div class="sc-meta">共 ${s.threadCount || 0} 个帖子${s.errorCount > 0 ? ', ⚠️ ' + s.errorCount + ' 个异常' : ''}</div>
           <div class="sc-actions">
             <button class="btn-sm" onclick="viewTiebaText('${s.sessionId}', '${(s.textFile||'').replace(/'/g, "\\'")}')">📄 查看文本</button>
             <button class="btn-sm" onclick="transferScrape('${s.sessionId}')">📁 转存到文件</button>
@@ -162,21 +168,48 @@ async function loadScrapeSessions() {
       // 常规采集会话
       const typeLabel = s.type === 'images' ? '📷 图片' : s.type === 'text' ? '📄 文本' : s.type === 'video' ? '🎬 视频' : s.type === 'music' ? '🎵 音频' : '📷📄 图片+文本';
       const fileLabel = s.type === 'video' ? '个视频' : s.type === 'music' ? '个音频' : '张图片';
+      
+      // 图片预览：前3张 + 展开
+      let imgPreview = '';
+      if (s.imageCount > 0 && s.type !== 'video' && s.type !== 'music') {
+        const imgs = s.images || [];
+        const show = imgs.slice(0, 3);
+        const more = imgs.length - 3;
+        imgPreview = `<div class="sc-preview" style="cursor:pointer;" onclick="expandScrapeImages('${s.sessionId}')">` +
+          show.map(img => `<img src="/api/scrape/img/${s.sessionId}/${img.name}" title="${escHtml(img.name)}">`).join('') +
+          (more > 0 ? `<span class="sc-more-badge">+${more}</span>` : '') +
+          `</div>`;
+      }
+      // 视频/音频：文件名列表
+      if (s.imageCount > 0 && (s.type === 'video' || s.type === 'music')) {
+        imgPreview = `<div style="font-size:.8rem;margin-top:.3rem;">${(s.images||[]).slice(0,3).map(i => '🎬 ' + (i.name||'')).join(', ')}${(s.images||[]).length>3?' ...':''}</div>`;
+      }
+      // 文本预览
+      let txtPreview = '';
+      if (s.textCount > 0) {
+        const txts = s.texts || [];
+        const show = txts.slice(0, 3);
+        const more = txts.length - 3;
+        txtPreview = `<div style="font-size:.8rem;margin-top:.3rem;cursor:pointer;" onclick="expandScrapeTexts('${s.sessionId}')">📄 ` +
+          show.map(t => t.name).join(', ') +
+          (more > 0 ? ` <span class="sc-more-badge">+${more}</span>` : '') +
+          `</div>`;
+      }
+
       const card = document.createElement('div');
       card.className = 'scrape-card';
       card.innerHTML = `
         <div class="sc-header">
+          <input type="checkbox" class="file-check scrape-check" data-sid="${s.sessionId}" onchange="updateScrapeBatchBar()" onclick="event.stopPropagation()" style="flex-shrink:0;margin-right:.4rem;">
           <div>
             <div class="sc-title">🌐 ${escHtml(s.title || s.url)}</div>
             <div class="sc-meta">${new Date(s.time).toLocaleString('zh-CN')} · ${s.urlCount}个页面 · ${typeLabel}</div>
           </div>
         </div>
-        ${s.imageCount > 0 && s.type !== 'video' && s.type !== 'music' ? `<div class="sc-preview">${(s.images || []).slice(0, 6).map(img => `<img src="/api/scrape/img/${s.sessionId}/${img.name}" onclick="window.open('/api/scrape/img/${s.sessionId}/${img.name}','_blank')" title="${escHtml(img.name)}">`).join('')}${(s.images||[]).length > 6 ? `<span style="padding:.5rem;">+${(s.images||[]).length - 6}</span>` : ''}</div>` : ''}
-        ${s.imageCount > 0 && (s.type === 'video' || s.type === 'music') ? `<div style="font-size:.8rem;margin-top:.3rem;">${(s.images||[]).slice(0,8).map(i => '🎬 ' + (i.name||'')).join(', ')}${(s.images||[]).length>8? ' ...' : ''}</div>` : ''}
-        ${s.textCount > 0 ? `<div style="font-size:.8rem;margin-top:.3rem;">📄 ${(s.texts||[]).map(t=>t.name).join(', ')}</div>` : ''}
-        <div class="sc-meta">共 ${s.imageCount} ${fileLabel}, ${s.textCount} 个文本${s.errorCount > 0 ? `, ⚠️ ${s.errorCount} 个失败` : ''}${(s.errors||[]).length > 0 ? '<br><small>' + s.errors.map(e => escHtml(e.url+': '+e.error)).join('<br>') + '</small>' : ''}</div>
+        ${imgPreview}
+        ${txtPreview}
+        <div class="sc-meta">共 ${s.imageCount} ${fileLabel}, ${s.textCount} 个文本${s.errorCount > 0 ? `, ⚠️ ${s.errorCount} 个失败` : ''}</div>
         <div class="sc-actions">
-          <button class="btn-sm" onclick="previewScrape('${s.sessionId}')">👁️ 预览</button>
           <button class="btn-sm" onclick="transferScrape('${s.sessionId}')">📁 转存到文件</button>
           <button class="btn-sm danger" onclick="delScrapeSession('${s.sessionId}')">🗑 删除</button>
         </div>
@@ -321,60 +354,84 @@ function fillScrapeUrl(platform) {
   ta.focus();
 }
 
-// ===== 采集预览 =====
-async function previewScrape(sid) {
+// ===== 采集批量操作 =====
+function updateScrapeBatchBar() {
+  const checked = document.querySelectorAll('.scrape-check:checked');
+  const bar = document.getElementById('scrapeBatchBar');
+  const count = document.getElementById('scrapeSelectedCount');
+  if (bar) bar.style.display = checked.length ? 'flex' : 'none';
+  if (count) count.textContent = checked.length ? '已选 ' + checked.length + ' 条' : '';
+}
+
+function toggleScrapeSelectAll() {
+  const all = document.getElementById('scrapeSelectAll');
+  document.querySelectorAll('.scrape-check').forEach(cb => { cb.checked = all.checked; });
+  updateScrapeBatchBar();
+}
+
+async function batchTransferScrape() {
+  const checked = document.querySelectorAll('.scrape-check:checked');
+  if (!checked.length) { toast('⚠️ 请先勾选'); return; }
+  let ok = 0;
+  for (const cb of checked) {
+    const r = await fetch('/api/scrape/transfer/' + cb.dataset.sid, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+    if (r.ok) ok++;
+  }
+  toast('✅ ' + ok + ' 条已转存到文件中转站');
+}
+
+async function batchDelScrape() {
+  const checked = document.querySelectorAll('.scrape-check:checked');
+  if (!checked.length) { toast('⚠️ 请先勾选'); return; }
+  if (!confirm('确定删除选中的 ' + checked.length + ' 条采集记录？')) return;
+  let ok = 0;
+  for (const cb of checked) {
+    try { await fetch('/api/scrape/session/' + cb.dataset.sid, { method: 'DELETE' }); ok++; } catch {}
+  }
+  toast('🗑️ ' + ok + ' 条已删除');
+  loadScrapeSessions();
+}
+
+// ===== 图片展开 =====
+async function expandScrapeImages(sid) {
   const modal = document.getElementById('previewModal');
-  const title = document.getElementById('previewTitle');
   const body = document.getElementById('previewBody');
-  title.textContent = '采集预览';
+  document.getElementById('previewTitle').textContent = '采集图片';
   body.innerHTML = '<div class="file-info"><div class="fi-icon">⏳</div>加载中...</div>';
   modal.classList.add('show');
-
   try {
     const session = await (await fetch('/api/scrape/session/' + sid)).json();
-    if (!session) { body.innerHTML = '<div class="file-info"><div class="fi-icon">❌</div>会话不存在</div>'; return; }
-
-    let html = '<div style="font-size:.85rem;color:var(--sub);margin-bottom:.8rem;">' +
-      escHtml(session.title || session.url || '') + ' · ' +
-      new Date(session.time).toLocaleString('zh-CN') + '</div>';
-
-    // 图片/视频/音频
-    if (session.images && session.images.length) {
-      html += '<div style="font-weight:600;margin-bottom:.4rem;">📷 文件 (' + session.images.length + ')</div>';
-      html += '<div style="display:flex;flex-wrap:wrap;gap:.5rem;">';
-      for (const img of session.images.slice(0, 30)) {
+    const imgs = session.images || [];
+    body.innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:.5rem;">' +
+      imgs.map(img => {
         const url = '/api/scrape/img/' + sid + '/' + img.name;
-        const ext = (img.name || '').split('.').pop().toLowerCase();
-        if (['mp4','webm','mov','mkv'].includes(ext)) {
-          html += `<div style="width:200px;"><video controls style="width:100%;max-height:150px;" src="${url}"></video><div style="font-size:.7rem;">${escHtml(img.name)}</div></div>`;
-        } else if (['mp3','wav','ogg','flac','aac'].includes(ext)) {
-          html += `<div style="width:200px;"><audio controls style="width:100%;" src="${url}"></audio><div style="font-size:.7rem;">${escHtml(img.name)}</div></div>`;
-        } else {
-          html += `<img src="${url}" onclick="window.open('${url}','_blank')" style="width:120px;height:90px;object-fit:cover;border-radius:6px;cursor:pointer;" title="${escHtml(img.name)}">`;
+        return `<img src="${url}" onclick="window.open('${url}','_blank')" style="width:160px;height:120px;object-fit:cover;border-radius:6px;cursor:pointer;" title="${escHtml(img.name)}">`;
+      }).join('') + '</div>';
+  } catch(e) { body.innerHTML = '<div class="file-info"><div class="fi-icon">❌</div>加载失败</div>'; }
+}
+
+async function expandScrapeTexts(sid) {
+  const modal = document.getElementById('previewModal');
+  const body = document.getElementById('previewBody');
+  document.getElementById('previewTitle').textContent = '采集文本';
+  body.innerHTML = '<div class="file-info"><div class="fi-icon">⏳</div>加载中...</div>';
+  modal.classList.add('show');
+  try {
+    const session = await (await fetch('/api/scrape/session/' + sid)).json();
+    const txts = session.texts || [];
+    let html = '';
+    for (const txt of txts) {
+      const url = '/api/scrape/text/' + sid + '/' + txt.name;
+      try {
+        const r = await fetch(url);
+        if (r.ok) {
+          const text = await r.text();
+          html += '<details style="margin-bottom:.3rem;"><summary style="cursor:pointer;font-weight:500;">' + escHtml(txt.name) + '</summary>';
+          html += '<pre style="white-space:pre-wrap;word-break:break-word;max-height:300px;overflow:auto;background:var(--bg);padding:.5rem;border-radius:6px;font-size:.8rem;margin-top:.3rem;">' + escHtml(text) + '</pre>';
+          html += '</details>';
         }
-      }
-      html += '</div>';
+      } catch {}
     }
-
-    // 文本
-    if (session.texts && session.texts.length) {
-      html += '<div style="font-weight:600;margin-top:.8rem;margin-bottom:.4rem;">📄 文本 (' + session.texts.length + ')</div>';
-      for (const txt of session.texts.slice(0, 10)) {
-        const textUrl = '/api/scrape/text/' + sid + '/' + txt.name;
-        try {
-          const resp = await fetch(textUrl);
-          if (resp.ok) {
-            const text = await resp.text();
-            html += '<details style="margin-bottom:.3rem;"><summary style="cursor:pointer;font-weight:500;">' + escHtml(txt.name) + '</summary>';
-            html += '<pre style="white-space:pre-wrap;word-break:break-word;max-height:300px;overflow:auto;background:var(--bg);padding:.5rem;border-radius:6px;font-size:.8rem;margin-top:.3rem;">' + escHtml(text.slice(0, 5000)) + '</pre>';
-            html += '</details>';
-          }
-        } catch {}
-      }
-    }
-
-    body.innerHTML = html;
-  } catch(e) {
-    body.innerHTML = '<div class="file-info"><div class="fi-icon">❌</div>预览失败：' + escHtml(e.message) + '</div>';
-  }
+    body.innerHTML = html || '<div class="file-info"><div class="fi-icon">📄</div>无文本内容</div>';
+  } catch(e) { body.innerHTML = '<div class="file-info"><div class="fi-icon">❌</div>加载失败</div>'; }
 }

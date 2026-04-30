@@ -389,19 +389,10 @@ document.addEventListener('keydown', e => {
   }
   if (currentPanel === 'notes' && currentNoteId) { deleteNote(); return; }
   if (currentPanel === 'scrape') {
-    const sessions = document.querySelectorAll('.scrape-card');
-    for (const card of sessions) {
-      const btn = card.querySelector('.btn-sm.danger');
-      if (btn) {
-        const onclick = btn.getAttribute('onclick') || '';
-        const sidMatch = onclick.match(/delScrapeSession\('([^']+)'\)/);
-        if (sidMatch && confirm('确定删除这条采集记录？')) {
-          delScrapeSession(sidMatch[1]);
-        }
-        break;
-      }
-    }
-    return;
+    const checked = document.querySelectorAll('.scrape-check:checked');
+    if (checked.length) { batchDelScrape(); return; }
+    const first = document.querySelector('.scrape-check');
+    if (first) { first.checked = true; updateScrapeBatchBar(); batchDelScrape(); return; }
   }
   if (currentPanel === 'trash') { emptyTrash(); return; }
   if (currentPanel === 'read' && currentBook) { closeReader(); return; }

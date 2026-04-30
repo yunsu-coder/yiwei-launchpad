@@ -217,6 +217,12 @@
   .scrape-card .sc-preview img { width:80px; height:60px; object-fit:cover; border-radius:6px; border:1px solid var(--border); cursor:pointer; }
   .scrape-card .sc-preview img:hover { transform:scale(1.05); }
   .scrape-card .sc-actions { display:flex; gap:.3rem; margin-top:.5rem; }
+  .sc-more-badge {
+    display:inline-flex; align-items:center; justify-content:center;
+    width:80px; height:60px; border-radius:6px; border:1px dashed var(--border);
+    color:var(--accent); font-size:.8rem; font-weight:600; cursor:pointer;
+  }
+  .sc-more-badge:hover { background:var(--hover); }
 
   /* 贴吧采集 */
   .tieba-section { margin-top:1rem; padding-top:1rem; border-top:1px solid var(--border); }
@@ -465,6 +471,12 @@
     </div>
   </div>
   <div class="scrape-progress" id="scrapeProgress"></div>
+  <div id="scrapeBatchBar" style="display:none;align-items:center;gap:.5rem;margin-bottom:.5rem;padding:.4rem .6rem;background:var(--card);border:1px solid var(--border);border-radius:8px;font-size:.8rem;">
+    <label style="display:flex;align-items:center;gap:.3rem;cursor:pointer;"><input type="checkbox" id="scrapeSelectAll" onchange="toggleScrapeSelectAll()"> 全选</label>
+    <span id="scrapeSelectedCount" style="color:var(--accent);"></span>
+    <button class="btn-sm" onclick="batchTransferScrape()" style="margin-left:auto;">📁 批量转存</button>
+    <button class="btn-sm danger" onclick="batchDelScrape()">🗑 批量删除</button>
+  </div>
   <div class="scrape-sessions" id="scrapeSessions"></div>
   <div class="empty-state" id="scrapeEmpty">还没有采集记录，输入 URL 开始采集吧</div>
 
