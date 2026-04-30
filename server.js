@@ -89,6 +89,27 @@ const server = http.createServer(async (req, res) => {
   // --- 状态 ---
   if (p === '/api/status') return sendJSON(res, 200, getStatus());
 
+  // --- OCR 图片转文字 ---
+  if (p === '/api/ocr' && m === 'POST') {
+    const body = parseJSON(await readBody(req));
+    if (!body?.name) return sendJSON(res, 400, { error: '缺少文件名' });
+    const fp = getFilePath(body.name);
+    if (!fp) return sendJSON(res, 404, { error: '文件不存在' });
+    const ext = path.extname(body.name).toLowerCase();
+    if (!['.jpg','.jpeg','.png','.webp','.bmp','.gif'].includes(ext)) {
+      return sendJSON(res, 400, { error: '不支持的图片格式' });
+    }
+    try {
+      const Tesseract = require('tesseract.js');
+      const { data } = await Tesseract.recognize(fp, 'chi_sim+eng', {
+        logger: () => {}, // 静默
+      });
+      return sendJSON(res, 200, { text: data.text?.trim() || '' });
+    } catch (e) {
+      return sendJSON(res, 500, { error: 'OCR 失败: ' + e.message });
+    }
+  }
+
   // --- 文件 ---
   if (p === '/api/files' && m === 'GET') return sendJSON(res, 200, listFiles());
   if (p === '/api/files' && m === 'POST') {

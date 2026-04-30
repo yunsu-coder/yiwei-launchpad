@@ -710,7 +710,15 @@ async function previewFile(name) {
   const imgExts = ['jpg','jpeg','png','gif','webp','svg','ico','bmp'];
 
   if (imgExts.includes(ext)) {
-    body.innerHTML = '<img src="/api/view/' + encodeURIComponent(name) + '" alt="' + escHtml(name) + '" onerror="this.parentElement.innerHTML=\'<div class=file-info><div class=fi-icon>❌</div>无法加载图片</div>\'">';
+    body.innerHTML = `
+      <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.8rem;flex-wrap:wrap;">
+        <span style="font-weight:600;color:var(--accent);">🖼️ ${escHtml(name)}</span>
+        <button class="btn-sm" onclick="ocrImage('${escAttr(name)}')" id="ocrBtn">🔍 OCR 识别</button>
+        <a href="/api/dl/` + encodeURIComponent(name) + `" class="btn-sm" style="text-decoration:none;">⬇ 下载</a>
+      </div>
+      <img src="/api/view/` + encodeURIComponent(name) + `" alt="${escHtml(name)}" style="max-width:100%;max-height:70vh;display:block;margin:0 auto;" onerror="this.parentElement.innerHTML='<div class=file-info><div class=fi-icon>❌</div>无法加载图片</div>'">
+      <div id="ocrResult" style="margin-top:.8rem;padding:.8rem;background:var(--card);border:1px solid var(--border);border-radius:8px;font-size:.85rem;white-space:pre-wrap;word-break:break-word;display:none;"></div>
+    `;
     return;
   }
 
@@ -779,7 +787,28 @@ function downloadFile(name) { window.open('/api/dl/' + encodeURIComponent(name),
 async function delFile(name) {
   if (!confirm(`确定删除「${name}」？`)) return;
   const r = await fetch('/api/files/' + encodeURIComponent(name), { method: 'DELETE' });
-  if (r.ok) { toast('🗑️ 已删除'); loadFiles(); updateStorageBar(); } else { toast('❌ 删除失败'); }
+  if (r.ok) { toast('🗑️ 已移入回收站'); loadFiles(); updateStorageBar(); } else { toast('❌ 删除失败'); }
+}
+
+// ===== OCR 识别 =====
+async function ocrImage(name) {
+  const btn = document.getElementById('ocrBtn');
+  const resultDiv = document.getElementById('ocrResult');
+  btn.disabled = true;
+  btn.textContent = '⏳ 识别中...';
+  resultDiv.style.display = 'block';
+  resultDiv.textContent = '正在识别文字，请稍候...';
+  try {
+    const r = await fetch('/api/ocr', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
+    const data = await r.json();
+    if (data.error) { resultDiv.textContent = '❌ ' + data.error; return; }
+    resultDiv.textContent = data.text || '（未识别到文字）';
+  } catch(e) {
+    resultDiv.textContent = '❌ 请求失败：' + e.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔍 OCR 识别';
+  }
 }
 
 // ===== 批量删除 =====
