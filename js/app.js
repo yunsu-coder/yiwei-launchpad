@@ -293,7 +293,9 @@ async function loadFiles() {
     const imgExts = ['jpg','jpeg','png','gif','webp','svg','bmp','ico'];
     grid.innerHTML = filtered.map(f => {
       if (f.isDir) {
-        return `<div class="file-card" onclick="navigateTo('${escAttr(f.relPath)}')" oncontextmenu="showFileMenu(event, '${escAttr(f.relPath)}', true);return false;">
+        return `<div class="file-card" onclick="navigateTo('${escAttr(f.relPath)}')"
+             ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, '${escAttr(f.relPath)}')"
+             oncontextmenu="showFileMenu(event, '${escAttr(f.relPath)}', true);return false;">
           <div class="file-card-icon">📁</div>
           <div class="file-card-name">${escHtml(f.name)}</div>
         </div>`;
@@ -301,9 +303,10 @@ async function loadFiles() {
       const ext = (f.name||'').split('.').pop().toLowerCase();
       const isImg = imgExts.includes(ext);
       const preview = isImg ? `<img src="/api/view/${encodeURIComponent(f.relPath)}" loading="lazy" style="width:100%;height:100%;object-fit:cover;">` : `<div class="file-card-icon">📄</div>`;
-      const dragAttr = isImg ? `draggable="true" ondragstart="handleDragStart(event, '${escAttr(f.relPath)}')" ondragend="handleDragEnd(event)"` : '';
       return `<div class="file-card" oncontextmenu="showFileMenu(event, '${escAttr(f.relPath)}', false);return false;">
-        <div class="file-card-preview" ${dragAttr} onclick="previewFile('${escAttr(f.relPath)}')">${preview}</div>
+        <div class="file-card-preview" draggable="true"
+             ondragstart="handleDragStart(event, '${escAttr(f.relPath)}')" ondragend="handleDragEnd(event)"
+             onclick="previewFile('${escAttr(f.relPath)}')">${preview}</div>
         <div class="file-card-name" onclick="previewFile('${escAttr(f.relPath)}')" title="点击预览">${escHtml(f.name)}</div>
         <div class="file-card-size">${sz(f.size)}</div>
       </div>`;
