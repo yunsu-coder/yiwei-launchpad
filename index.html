@@ -260,8 +260,10 @@
   .tieba-result .sc-meta a:hover { text-decoration:underline; }
 
   /* 播放器 */
-  .vp-container { background:#000; border-radius:10px; overflow:hidden; position:relative; }
-  .vp-container video { display:block; }
+  .vp-container { background:#000; border-radius:10px; overflow:hidden; position:relative; display:flex; flex-direction:column; }
+  .vp-container:fullscreen { border-radius:0; }
+  .vp-container video { display:block; flex:1; min-height:0; }
+  .vp-controls { display:flex; align-items:center; gap:.3rem; padding:.5rem .8rem; background:rgba(0,0,0,0.9); flex-wrap:wrap; order:2; }
   .vp-controls { display:flex; align-items:center; gap:.3rem; padding:.5rem .8rem; background:rgba(0,0,0,0.85); flex-wrap:wrap; }
   .vp-btn { background:none; border:none; color:#fff; cursor:pointer; padding:.2rem; border-radius:4px; }
   .vp-btn:hover { background:rgba(255,255,255,0.1); }
@@ -591,7 +593,7 @@
     <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem;">
       <button class="btn-sm" onclick="closePlayer()">← 返回列表</button>
       <span id="playerTitle" style="font-weight:600;font-size:.85rem;"></span>
-      <button class="btn-sm" id="playerPipBtn" onclick="togglePiP()" title="画中画" style="margin-left:auto;"><span class="mi">picture_in_picture</span></button>
+      <span id="playerQuality" style="font-size:.72rem;color:var(--sub);margin-left:auto;"></span>
     </div>
     <div id="playerContent" style="text-align:center;background:var(--bg);border-radius:10px;min-height:300px;display:flex;align-items:center;justify-content:center;"></div>
   </div>

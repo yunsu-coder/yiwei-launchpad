@@ -1,5 +1,5 @@
 // ===== 播放器模块 =====
-let playerCurrent = null, playerType = null, playerSpeed = 1;
+let playerCurrent = null, playerType = null;
 let miniActive = false, playerQueue = [], queueIdx = -1;
 
 const MEDIA_EXTS = ['mp4','webm','mov','mkv','mp3','wav','ogg','flac','aac','m4a'];
@@ -14,6 +14,7 @@ async function loadPlayer() {
     empty.style.display = 'none';
     const icons = { mp4:'🎬', webm:'🎬', mov:'🎬', mkv:'🎬', mp3:'🎵', wav:'🎵', ogg:'🎵', flac:'🎵', aac:'🎵', m4a:'🎵' };
     const sz = b => b < 1024 ? b+'B' : b < 1024*1024 ? (b/1024).toFixed(1)+'KB' : (b/1024*1024).toFixed(1)+'MB';
+    playerQueue = files.map(f => f.relPath || f.name);
     el.innerHTML = files.map(f => {
       const icon = icons[f.name.split('.').pop().toLowerCase()] || '🎬';
       return `<div class="file-card" onclick="openPlayer('${escAttr(f.relPath || f.name)}')">
@@ -22,8 +23,6 @@ async function loadPlayer() {
         <div class="file-card-size">${sz(f.size)}</div>
       </div>`;
     }).join('');
-    // 设置队列
-    playerQueue = files.map(f => f.relPath || f.name);
   } catch(e) { console.error(e); }
 }
 
@@ -37,7 +36,6 @@ function openPlayer(name) {
   document.getElementById('playerView').style.display = 'block';
   document.getElementById('playerTitle').textContent = name;
   const url = '/api/view/' + encodeURIComponent(name);
-  playerSpeed = 1;
 
   if (playerType === 'video') renderVideoPlayer(url, name);
   else renderAudioPlayer(url, name);
@@ -48,12 +46,14 @@ function renderVideoPlayer(url, name) {
   const content = document.getElementById('playerContent');
   content.innerHTML = `
     <div class="vp-container">
-      <video id="mainVideo" src="${url}" preload="auto" style="max-width:100%;max-height:60vh;border-radius:6px 6px 0 0;display:block;width:100%;cursor:pointer;"></video>
+      <video id="mainVideo" preload="auto" style="max-width:100%;max-height:55vh;display:block;width:100%;cursor:pointer;background:#000;">
+        <source src="${url}" type="video/mp4">
+      </video>
+      <div class="vp-loading" id="vpLoading" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#fff;font-size:1.5rem;pointer-events:none;">⏳ 加载中...</div>
       <div class="vp-controls" id="vpControls">
         <button class="vp-btn" onclick="vpPlayPause()" id="vpPlayBtn"><span class="mi">play_arrow</span></button>
         <span id="vpTime" class="vp-time">00:00 / 00:00</span>
         <input type="range" id="vpProgress" class="vp-progress" value="0" min="0" max="100" oninput="vpSeek(this.value)" title="进度">
-        <span class="vp-speed" onclick="cycleSpeed()" title="倍速">1×</span>
         <input type="range" id="vpVolume" class="vp-volume" value="100" min="0" max="100" oninput="vpSetVolume(this.value)" title="音量">
         <button class="vp-btn" onclick="togglePiP()"><span class="mi">picture_in_picture</span></button>
         <button class="vp-btn" onclick="vpFullscreen()"><span class="mi">fullscreen</span></button>
@@ -69,15 +69,17 @@ function renderAudioPlayer(url, name) {
     <div style="text-align:center;padding:2rem;">
       <div style="font-size:5rem;margin-bottom:1rem;">🎵</div>
       <div style="font-weight:600;margin-bottom:.5rem;color:var(--accent);">${escHtml(name)}</div>
-      <audio id="mainAudio" src="${url}" preload="auto" style="display:none;"></audio>
+      <audio id="mainAudio" preload="auto" style="display:none;">
+        <source src="${url}">
+      </audio>
+      <div class="vp-loading" id="vpLoading" style="color:var(--sub);margin-bottom:.5rem;">⏳ 加载中...</div>
       <div style="display:flex;align-items:center;gap:.8rem;max-width:500px;margin:1rem auto;">
         <button class="vp-btn" onclick="vpPlayPause()" id="vpPlayBtn"><span class="mi">play_arrow</span></button>
         <input type="range" id="vpProgress" class="vp-progress" value="0" min="0" max="100" oninput="vpSeek(this.value)" style="flex:1;">
         <button class="vp-btn" onclick="vpNext()"><span class="mi">skip_next</span></button>
       </div>
-      <div style="display:flex;align-items:center;justify-content:center;gap:.8rem;margin-top:.5rem;">
+      <div style="display:flex;align-items:center;justify-content:center;gap:.8rem;">
         <span id="vpTime" class="vp-time">00:00 / 00:00</span>
-        <span class="vp-speed" onclick="cycleSpeed()" title="倍速">1×</span>
         <input type="range" id="vpVolume" class="vp-volume" value="100" min="0" max="100" oninput="vpSetVolume(this.value)" title="音量">
       </div>
     </div>`;
@@ -88,23 +90,34 @@ function renderAudioPlayer(url, name) {
 function bindVideoEvents() {
   const video = document.getElementById('mainVideo');
   if (!video) return;
-  video.playbackRate = playerSpeed;
   video.volume = localStorage.getItem('player-volume') ? parseFloat(localStorage.getItem('player-volume')) : 1;
-  document.getElementById('vpVolume').value = Math.round(video.volume * 100);
+  const vpVol = document.getElementById('vpVolume');
+  if (vpVol) vpVol.value = Math.round(video.volume * 100);
   const vpPlayBtn = document.getElementById('vpPlayBtn');
-  vpPlayBtn.querySelector('.mi').textContent = 'play_arrow';
+  if (vpPlayBtn) vpPlayBtn.querySelector('.mi').textContent = 'play_arrow';
 
   video.addEventListener('click', () => vpPlayPause());
-  video.addEventListener('play', () => { vpPlayBtn.querySelector('.mi').textContent = 'pause'; });
-  video.addEventListener('pause', () => { vpPlayBtn.querySelector('.mi').textContent = 'play_arrow'; });
+  video.addEventListener('play', () => { if (vpPlayBtn) vpPlayBtn.querySelector('.mi').textContent = 'pause'; });
+  video.addEventListener('pause', () => { if (vpPlayBtn) vpPlayBtn.querySelector('.mi').textContent = 'play_arrow'; });
+  video.addEventListener('waiting', () => { const ld = document.getElementById('vpLoading'); if (ld) ld.style.display = 'block'; });
+  video.addEventListener('canplay', () => { const ld = document.getElementById('vpLoading'); if (ld) ld.style.display = 'none'; });
+  
   video.addEventListener('loadedmetadata', () => {
-    document.getElementById('vpProgress').max = video.duration;
+    const p = document.getElementById('vpProgress');
+    if (p) p.max = video.duration;
+    document.getElementById('vpLoading').style.display = 'none';
+    const q = document.getElementById('playerQuality');
+    if (q) {
+      const w = video.videoWidth, h = video.videoHeight;
+      const mb = (video.duration * (w * h * 30) / 8 / 1024 / 1024).toFixed(0);
+      q.textContent = (w && h) ? `${w}×${h}` : '';
+    }
   });
   video.addEventListener('timeupdate', () => {
     if (!video.duration) return;
-    document.getElementById('vpProgress').value = video.currentTime;
+    const p = document.getElementById('vpProgress');
+    if (p) { p.max = video.duration; p.value = video.currentTime; }
     document.getElementById('vpTime').textContent = fmtTime(video.currentTime) + ' / ' + fmtTime(video.duration);
-    // 同步迷你播放器
     const ma = document.getElementById('bgAudio');
     if (ma && !ma.paused) ma.currentTime = video.currentTime;
   });
@@ -114,15 +127,22 @@ function bindVideoEvents() {
 function bindAudioEvents() {
   const audio = document.getElementById('mainAudio');
   if (!audio) return;
-  audio.playbackRate = playerSpeed;
   audio.volume = localStorage.getItem('player-volume') ? parseFloat(localStorage.getItem('player-volume')) : 1;
   const vpPlayBtn = document.getElementById('vpPlayBtn');
-  if (vpPlayBtn) { vpPlayBtn.querySelector('.mi').textContent = 'play_arrow'; }
+  if (vpPlayBtn) vpPlayBtn.querySelector('.mi').textContent = 'play_arrow';
 
-  audio.addEventListener('play', () => { if (vpPlayBtn) vpPlayBtn.querySelector('.mi').textContent = 'pause'; });
+  audio.addEventListener('play', () => { if (vpPlayBtn) vpPlayBtn.querySelector('.mi').textContent = 'pause'; document.getElementById('vpLoading').style.display = 'none'; });
   audio.addEventListener('pause', () => { if (vpPlayBtn) vpPlayBtn.querySelector('.mi').textContent = 'play_arrow'; });
+  audio.addEventListener('waiting', () => { document.getElementById('vpLoading').style.display = 'block'; });
+  audio.addEventListener('canplay', () => { document.getElementById('vpLoading').style.display = 'none'; });
   audio.addEventListener('loadedmetadata', () => {
+    document.getElementById('vpLoading').style.display = 'none';
     document.getElementById('vpProgress').max = audio.duration;
+    const q = document.getElementById('playerQuality');
+    if (q) {
+      const kbps = audio.duration ? (document.querySelector('audio source')?.duration * 128) : '';
+      q.textContent = audio.duration ? (Math.round(audio.duration) + 's') : '';
+    }
   });
   audio.addEventListener('timeupdate', () => {
     if (!audio.duration) return;
@@ -152,16 +172,6 @@ function vpSetVolume(val) {
   localStorage.setItem('player-volume', v);
 }
 
-function cycleSpeed() {
-  const speeds = [0.5, 0.75, 1, 1.25, 1.5, 2];
-  const idx = speeds.indexOf(playerSpeed);
-  playerSpeed = speeds[(idx + 1) % speeds.length];
-  const el = playerType === 'video' ? document.getElementById('mainVideo') : document.getElementById('mainAudio');
-  if (el) el.playbackRate = playerSpeed;
-  const label = document.querySelector('.vp-speed');
-  if (label) label.textContent = playerSpeed + '×';
-}
-
 function vpFullscreen() {
   const container = document.querySelector('.vp-container');
   if (!container) return;
@@ -173,13 +183,6 @@ function vpNext() {
   if (queueIdx >= 0 && queueIdx < playerQueue.length - 1) {
     openPlayer(playerQueue[queueIdx + 1]);
   }
-}
-
-function togglePiP() {
-  const video = document.getElementById('mainVideo');
-  if (!video) return;
-  if (document.pictureInPictureElement) document.exitPictureInPicture();
-  else video.requestPictureInPicture().catch(() => {});
 }
 
 // ===== 键盘快捷键 =====
@@ -198,8 +201,6 @@ document.addEventListener('keydown', e => {
     case 'ArrowDown': el.volume = Math.max(0, el.volume - 0.1); document.getElementById('vpVolume').value = Math.round(el.volume*100); localStorage.setItem('player-volume', el.volume); break;
     case 'f': vpFullscreen(); break;
     case 'm': el.muted = !el.muted; break;
-    case 'p': togglePiP(); break;
-    case '>': case '.': cycleSpeed(); break;
     case 'n': vpNext(); break;
   }
 });
@@ -235,9 +236,7 @@ function miniTogglePlay() {
   el.paused ? el.play() : el.pause();
 }
 
-function miniSeek(val) {
-  document.getElementById('bgAudio').currentTime = val;
-}
+function miniSeek(val) { document.getElementById('bgAudio').currentTime = val; }
 
 function closeMiniPlayer() {
   document.getElementById('bgAudio').pause();
@@ -260,6 +259,7 @@ function closePlayer() {
 }
 
 function fmtTime(s) {
+  if (!isFinite(s)) return '00:00';
   const m = Math.floor(s / 60), sec = Math.floor(s % 60);
   return String(m).padStart(2,'0') + ':' + String(sec).padStart(2,'0');
 }
