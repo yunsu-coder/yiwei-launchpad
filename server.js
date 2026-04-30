@@ -6,7 +6,9 @@ const crypto = require('crypto');
 const { URL } = require('url');
 
 const { getStatus, listFiles, uploadFiles, deleteFile, getFilePath, getFilePreview,
-        listNotes, saveNote, getNote, deleteNote, parseMultipart, invalidateSizeCache, MAX_STORAGE } = require('./lib/storage');
+        listNotes, saveNote, getNote, deleteNote, parseMultipart, invalidateSizeCache, MAX_STORAGE,
+        createFolder, deleteFolder, renameFolder, emptyTrash, listTrash, restoreFromTrash,
+        scanDir, FILES_DIR } = require('./lib/storage');
 const { doScrape, listSessions, getSession, deleteSession, transferSession, scrapeTieba } = require('./lib/scraper');
 
 // ===== 加载环境变量 =====
@@ -325,8 +327,51 @@ const server = http.createServer(async (req, res) => {
     return res.end(preview.data);
   }
 
+  // --- 文件夹操作 ---
+  if (p === '/api/folders' && m === 'POST') {
+    const body = parseJSON(await readBody(req));
+    if (!body?.name) return sendJSON(res, 400, { error: '缺少文件夹名' });
+    const result = createFolder(body.name);
+    if (result.error) return sendJSON(res, 409, result);
+    return sendJSON(res, 200, result);
+  }
+  if (p.startsWith('/api/folders/') && m === 'DELETE') {
+    const name = decodeURIComponent(p.slice('/api/folders/'.length));
+    const result = deleteFolder(name);
+    if (result.error) return sendJSON(res, 400, result);
+    return sendJSON(res, 200, result);
+  }
+  if (p.startsWith('/api/folders/rename/') && m === 'PUT') {
+    const name = decodeURIComponent(p.slice('/api/folders/rename/'.length));
+    const body = parseJSON(await readBody(req));
+    if (!body?.newName) return sendJSON(res, 400, { error: '缺少新名称' });
+    const result = renameFolder(name, body.newName);
+    if (result.error) return sendJSON(res, 400, result);
+    return sendJSON(res, 200, result);
+  }
+
+  // --- 回收站 ---
+  if (p === '/api/trash' && m === 'GET') return sendJSON(res, 200, listTrash());
+  if (p === '/api/trash' && m === 'DELETE') return sendJSON(res, 200, emptyTrash());
+  if (p.startsWith('/api/trash/restore/') && m === 'POST') {
+    const name = decodeURIComponent(p.slice('/api/trash/restore/'.length));
+    const result = restoreFromTrash(name);
+    if (result.error) return sendJSON(res, 400, result);
+    return sendJSON(res, 200, result);
+  }
+
   // --- 笔记 ---
-  if (p === '/api/notes' && m === 'GET') return sendJSON(res, 200, listNotes());
+  if (p === '/api/notes' && m === 'GET') {
+    const q = url.searchParams.get('q') || '';
+    const notes = listNotes();
+    if (q) {
+      const filtered = notes.filter(n =>
+        n.title.includes(q) || (n.preview || '').includes(q)
+      );
+      return sendJSON(res, 200, filtered);
+    }
+    return sendJSON(res, 200, notes);
+  }
   if (p === '/api/notes' && m === 'POST') {
     const body = parseJSON(await readBody(req));
     if (!body || body.title === undefined) return sendJSON(res, 400, { error: 'bad request' });
