@@ -20,6 +20,7 @@ function switchPanel(name) {
   if (name === 'notes') loadNotesList();
   if (name === 'scrape') loadScrapeSessions();
   if (name === 'read') loadReaderBooks();
+  if (name === 'player') loadPlayer();
 }
 
 document.querySelectorAll('.nav-item').forEach(btn => {
@@ -1166,7 +1167,7 @@ document.addEventListener('mouseup', function(e) {
 // ===== 刷新恢复面板 =====
 (function(){
   const hash = location.hash.slice(1);
-  const valid = ['home','files','notes','scrape'];
+  const valid = ['home','files','notes','scrape','read','player'];
   if (hash && valid.includes(hash)) switchPanel(hash);
 })();
 
