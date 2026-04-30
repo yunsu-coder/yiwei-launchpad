@@ -1115,7 +1115,10 @@ document.addEventListener('mouseup', function(e) {
   resize();
   window.addEventListener('resize', resize);
 
-  document.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
+  document.addEventListener('mousemove', e => {
+    mouseX = e.clientX; mouseY = e.clientY;
+    addParticle();
+  });
 
   function addParticle() {
     if (particles.length >= maxParticles) particles.shift();
@@ -1145,7 +1148,6 @@ document.addEventListener('mouseup', function(e) {
     requestAnimationFrame(draw);
   }
 
-  setInterval(addParticle, 40);
   draw();
 })();
 
