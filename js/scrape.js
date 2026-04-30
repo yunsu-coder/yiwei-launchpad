@@ -94,10 +94,16 @@ async function startScrape() {
       const imgs = result.imageCount || 0;
       const txts = result.textCount || 0;
       const errs = result.errorCount || 0;
+      const tp = type;
+      const fileLabel = tp === 'video' ? '个视频' : tp === 'music' ? '个音频' : '张图片';
+      const allLabel = tp === 'video' ? '视频' : tp === 'music' ? '音频' : '图片';
       if (imgs + txts === 0) {
         toast('⚠️ 未采集到内容' + (errs > 0 ? '（' + errs + '个页面失败）' : ''));
       } else {
-        toast('✅ 采集完成：' + imgs + '张图片, ' + txts + '个文本' + (errs > 0 ? ', ' + errs + '个失败' : ''));
+        const parts = [];
+        if (imgs > 0) parts.push(imgs + fileLabel);
+        if (txts > 0) parts.push(txts + '个文本');
+        toast('✅ 采集完成：' + parts.join(', ') + (errs > 0 ? ', ' + errs + '个失败' : ''));
       }
       loadScrapeSessions();
     } else {
@@ -143,6 +149,7 @@ async function loadScrapeSessions() {
       }
       // 常规采集会话
       const typeLabel = s.type === 'images' ? '📷 图片' : s.type === 'text' ? '📄 文本' : s.type === 'video' ? '🎬 视频' : s.type === 'music' ? '🎵 音频' : '📷📄 图片+文本';
+      const fileLabel = s.type === 'video' ? '个视频' : s.type === 'music' ? '个音频' : '张图片';
       const card = document.createElement('div');
       card.className = 'scrape-card';
       card.innerHTML = `
@@ -152,9 +159,10 @@ async function loadScrapeSessions() {
             <div class="sc-meta">${new Date(s.time).toLocaleString('zh-CN')} · ${s.urlCount}个页面 · ${typeLabel}</div>
           </div>
         </div>
-        ${s.imageCount > 0 ? `<div class="sc-preview">${(s.images || []).slice(0, 6).map(img => `<img src="/api/scrape/img/${s.sessionId}/${img.name}" onclick="window.open('/api/scrape/img/${s.sessionId}/${img.name}','_blank')" title="${escHtml(img.name)}">`).join('')}${(s.images||[]).length > 6 ? `<span style="padding:.5rem;">+${(s.images||[]).length - 6} 张</span>` : ''}</div>` : ''}
+        ${s.imageCount > 0 && s.type !== 'video' && s.type !== 'music' ? `<div class="sc-preview">${(s.images || []).slice(0, 6).map(img => `<img src="/api/scrape/img/${s.sessionId}/${img.name}" onclick="window.open('/api/scrape/img/${s.sessionId}/${img.name}','_blank')" title="${escHtml(img.name)}">`).join('')}${(s.images||[]).length > 6 ? `<span style="padding:.5rem;">+${(s.images||[]).length - 6}</span>` : ''}</div>` : ''}
+        ${s.imageCount > 0 && (s.type === 'video' || s.type === 'music') ? `<div style="font-size:.8rem;margin-top:.3rem;">${(s.images||[]).slice(0,8).map(i => '🎬 ' + (i.name||'')).join(', ')}${(s.images||[]).length>8? ' ...' : ''}</div>` : ''}
         ${s.textCount > 0 ? `<div style="font-size:.8rem;margin-top:.3rem;">📄 ${(s.texts||[]).map(t=>t.name).join(', ')}</div>` : ''}
-        <div class="sc-meta">共 ${s.imageCount} 张图片, ${s.textCount} 个文本${s.errorCount > 0 ? `, ⚠️ ${s.errorCount} 个失败` : ''}${(s.errors||[]).length > 0 ? '<br><small>' + s.errors.map(e => escHtml(e.url+': '+e.error)).join('<br>') + '</small>' : ''}</div>
+        <div class="sc-meta">共 ${s.imageCount} ${fileLabel}, ${s.textCount} 个文本${s.errorCount > 0 ? `, ⚠️ ${s.errorCount} 个失败` : ''}${(s.errors||[]).length > 0 ? '<br><small>' + s.errors.map(e => escHtml(e.url+': '+e.error)).join('<br>') + '</small>' : ''}</div>
         <div class="sc-actions">
           <button class="btn-sm" onclick="transferScrape('${s.sessionId}')">📁 转存到文件</button>
           <button class="btn-sm danger" onclick="delScrapeSession('${s.sessionId}')">🗑 删除</button>
