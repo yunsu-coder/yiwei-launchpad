@@ -515,16 +515,6 @@ function switchPanel(name) {
   if (name === 'trash') loadTrash();
 }
 
-function switchPanel(name) {
-  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-  const btn = document.querySelector(`[data-panel="${name}"]`);
-  const panel = document.getElementById('panel-' + name);
-  if (btn) btn.classList.add('active');
-  if (panel) panel.classList.add('active');
-  if (name === 'trash') loadTrash();
-}
-
 document.querySelectorAll('.nav-item').forEach(btn => {
   btn.addEventListener('click', () => switchPanel(btn.dataset.panel));
 });
