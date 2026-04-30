@@ -232,6 +232,7 @@ document.addEventListener('keydown', e => {
 
 // ===== 迷你播放器 =====
 function startMiniPlayer(name, url, type) {
+  if (type === 'video') return; // 视频不显示迷你播放器
   miniActive = true;
   document.getElementById('miniPlayer').style.display = 'block';
   document.getElementById('miniTitle').textContent = name;
