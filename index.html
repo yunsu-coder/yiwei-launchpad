@@ -91,7 +91,8 @@
   .drop-zone .icon { font-size:2.2rem; margin-bottom:.4rem; }
   .drop-zone .hint { color:var(--sub); font-size:.8rem; }
   .drop-zone .hint strong { color:var(--accent); }
-  .file-list { display:flex; flex-direction:column; gap:.25rem; }
+  .file-list { display:flex; flex-direction:column; gap:.25rem; min-height:40px; border-radius:8px; transition:background .2s; }
+  .file-list.drag-over { background:var(--hover); }
   .file-row {
     display:flex; align-items:center; justify-content:space-between;
     padding:.5rem .7rem; background:var(--card); border-radius:8px;
@@ -100,6 +101,8 @@
   .file-row .fname { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:.85rem; }
   .file-row .fsize { color:var(--sub); font-size:.72rem; min-width:55px; text-align:right; }
   .file-row .actions { display:flex; gap:.2rem; }
+  .file-row.drag-over { border-color:var(--accent); background:var(--hover); box-shadow:0 0 0 2px var(--accent); }
+  .file-row[draggable="true"]:active { opacity:0.6; }
   .btn-sm {
     padding:.2rem .5rem; border:1px solid var(--border); border-radius:5px;
     cursor:pointer; font-size:.7rem; background:var(--card); color:var(--text);
@@ -341,7 +344,7 @@
     <span id="selectedCount" style="color:var(--accent);"></span>
     <button class="btn-sm danger" onclick="batchDelete()" style="margin-left:auto;">🗑 删除选中</button>
   </div>
-  <div class="file-list" id="fileList"></div>
+  <div class="file-list" id="fileList" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, '')"></div>
   <div class="empty-state" id="filesEmpty">暂无文件，上传一个吧</div>
 
   <!-- 回收站 -->
@@ -708,7 +711,8 @@ async function loadFiles() {
       if (f.isDir) {
         // 文件夹：点击进入目录
         return `
-        <div class="file-row" style="cursor:pointer;" onclick="navigateTo('${escAttr(f.relPath)}')">
+        <div class="file-row" style="cursor:pointer;" onclick="navigateTo('${escAttr(f.relPath)}')" 
+             ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, '${escAttr(f.relPath)}')">
           <input type="checkbox" class="file-check" data-name="${escAttr(f.relPath)}" onclick="event.stopPropagation();updateBatchBar();" style="flex-shrink:0;">
           <span class="fname">📁 ${escHtml(f.name)}</span>
           <span class="fsize"></span>
@@ -721,7 +725,8 @@ async function loadFiles() {
       }
       // 文件：点击预览
       return `
-        <div class="file-row" style="cursor:pointer;" onclick="previewFile('${escAttr(f.relPath)}')">
+        <div class="file-row" style="cursor:pointer;" onclick="previewFile('${escAttr(f.relPath)}')" 
+             draggable="true" ondragstart="handleDragStart(event, '${escAttr(f.relPath)}')" ondragend="handleDragEnd(event)">
           <input type="checkbox" class="file-check" data-name="${escAttr(f.relPath)}" onclick="event.stopPropagation();updateBatchBar();" style="flex-shrink:0;">
           <span class="fname">📄 ${escHtml(f.name)}</span>
           <span class="fsize">${f.isDir ? '' : sz(f.size)}</span>
@@ -729,7 +734,6 @@ async function loadFiles() {
           <div class="actions" onclick="event.stopPropagation();">
             <button class="btn-sm" onclick="copyLink('${escAttr(f.relPath)}')">复制链接</button>
             <button class="btn-sm" onclick="downloadFile('${escAttr(f.relPath)}')">下载</button>
-            <button class="btn-sm" onclick="moveFile('${escAttr(f.relPath)}')">📁 移动</button>
             <button class="btn-sm danger" onclick="delFile('${escAttr(f.relPath)}')">删除</button>
           </div>
         </div>`;
@@ -833,38 +837,6 @@ async function delFile(name) {
   if (r.ok) { toast('🗑️ 已移入回收站'); loadFiles(); updateStorageBar(); } else { toast('❌ 删除失败'); }
 }
 
-async function moveFile(name) {
-  // 获取所有文件夹（递归扫描）
-  const resp = await (await fetch('/api/files')).json();
-  const allFiles = resp.files || [];
-  // 也扫描子目录
-  let allDirs = allFiles.filter(f => f.isDir).map(f => f.relPath || f.name);
-  // 递归获取所有子目录
-  for (const dir of allDirs.slice()) {
-    try {
-      const sub = await (await fetch('/api/files?dir=' + encodeURIComponent(dir))).json();
-      for (const f of (sub.files || [])) {
-        if (f.isDir) allDirs.push(f.relPath);
-      }
-    } catch {}
-  }
-  allDirs = [...new Set(allDirs)];
-  
-  let target = prompt(
-    '移动到哪个文件夹？\n（输入路径，留空移到根目录）\n\n可用文件夹：\n' + (allDirs.length ? allDirs.join('\n') : '（无）'),
-    ''
-  );
-  if (target === null) return;
-  target = (target || '').trim();
-  
-  const r = await fetch('/api/files/move', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, targetDir: target }),
-  });
-  if (r.ok) { toast('✅ 已移动到 ' + (target || '根目录')); loadFiles(); }
-  else { const d = await r.json(); toast('❌ ' + (d.error || '移动失败')); }
-}
-
 // ===== OCR 识别 =====
 async function ocrImage(name) {
   const btn = document.getElementById('ocrBtn');
@@ -886,7 +858,64 @@ async function ocrImage(name) {
   }
 }
 
-// ===== 批量删除 =====
+// ===== 拖拽移动 =====
+let dragItems = [];
+
+function handleDragStart(e, name) {
+  // 如果有多选，拖拽所有选中的文件
+  const checked = document.querySelectorAll('.file-check:checked');
+  if (checked.length > 0) {
+    dragItems = Array.from(checked).map(cb => cb.dataset.name);
+  } else {
+    dragItems = [name];
+  }
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', dragItems.join('\n'));
+  // 视觉反馈
+  setTimeout(() => { e.target.style.opacity = '0.5'; }, 0);
+}
+
+function handleDragEnd(e) {
+  e.target.style.opacity = '1';
+  dragItems = [];
+  document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+}
+
+function handleDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  e.currentTarget.classList.add('drag-over');
+}
+
+function handleDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+
+async function handleDrop(e, targetDir) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if (!dragItems.length) return;
+  
+  // 不能拖到自己所在的目录
+  const valid = dragItems.filter(name => {
+    const srcDir = name.includes('/') ? name.split('/').slice(0, -1).join('/') : '';
+    return srcDir !== targetDir;
+  });
+  if (!valid.length) return;
+  
+  let ok = 0;
+  for (const name of valid) {
+    try {
+      const r = await fetch('/api/files/move', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, targetDir, overwrite: true }),
+      });
+      if (r.ok) ok++;
+    } catch {}
+  }
+  toast(`✅ ${ok}/${valid.length} 个文件已移动`);
+  loadFiles();
+}
 function updateBatchBar() {
   const checked = document.querySelectorAll('.file-check:checked');
   const bar = document.getElementById('batchBar');
