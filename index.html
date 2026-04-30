@@ -257,24 +257,6 @@
   .tieba-result .sc-meta a { color:var(--accent); text-decoration:none; }
   .tieba-result .sc-meta a:hover { text-decoration:underline; }
 
-  /* 播放器 */
-  .vp-container { background:#000; border-radius:10px; overflow:hidden; position:relative; display:flex; flex-direction:column; width:100%; }
-  .vp-container:fullscreen { border-radius:0; width:100vw; height:100vh; }
-  .vp-container:fullscreen video { max-height:100vh !important; height:100vh; }
-  .vp-container video { display:block; flex:1; min-height:0; }
-  .vp-controls { display:flex; align-items:center; gap:.3rem; padding:.5rem .8rem; background:rgba(0,0,0,0.9); flex-wrap:wrap; order:2; }
-  .vp-btn { background:none; border:none; color:#fff; cursor:pointer; padding:.2rem; border-radius:4px; }
-  .vp-btn:hover { background:rgba(255,255,255,0.1); }
-  .vp-time { color:#aaa; font-size:.75rem; white-space:nowrap; min-width:100px; text-align:center; }
-  .vp-progress { flex:1; height:4px; -webkit-appearance:none; background:rgba(255,255,255,0.2); border-radius:2px; outline:none; cursor:pointer; }
-  .vp-progress::-webkit-slider-thumb { -webkit-appearance:none; width:14px; height:14px; border-radius:50%; background:var(--accent); cursor:pointer; }
-  .vp-volume { width:80px; height:4px; -webkit-appearance:none; background:rgba(255,255,255,0.2); border-radius:2px; outline:none; cursor:pointer; }
-  .vp-volume::-webkit-slider-thumb { -webkit-appearance:none; width:12px; height:12px; border-radius:50%; background:#fff; cursor:pointer; }
-  .vp-speed { color:#aaa; font-size:.75rem; cursor:pointer; padding:.2rem .4rem; border-radius:4px; white-space:nowrap; }
-  .vp-speed:hover { color:#fff; background:rgba(255,255,255,0.1); }
-  .vp-big-play { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; cursor:pointer; color:#fff; z-index:1; }
-  .vp-big-play:hover { color:var(--accent); }
-
   .toast {
     position:fixed; bottom:2rem; left:50%; transform:translateX(-50%);
     padding:.6rem 1.2rem; border-radius:10px; background:#333; color:#fff;
