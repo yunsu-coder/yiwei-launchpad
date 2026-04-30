@@ -77,6 +77,22 @@ function expandUrls(raw) {
       }
       continue;
     }
+    // 步长序列：{1:+3,+3,+2,+2,+1,max=50}
+    const stepMatch = line.match(/^(.+)\{(\d+):\+(.+),max=(\d+)\}(.*)$/);
+    if (stepMatch) {
+      const [_, pre, startStr, stepsStr, maxStr, post] = stepMatch;
+      const steps = stepsStr.split(',').map(n => parseInt(n.trim()));
+      let v = parseInt(startStr);
+      const max = parseInt(maxStr);
+      const pad = startStr.length;
+      let si = 0;
+      while (v <= max) {
+        urls.push(pre + String(v).padStart(pad, '0') + post);
+        v += steps[si % steps.length];
+        si++;
+      }
+      continue;
+    }
     const m = line.match(/^(.+)\{(\d+)-(\d+)\}(.*)$/);
     if (m) {
       const [_, pre, start, end, post] = m;
