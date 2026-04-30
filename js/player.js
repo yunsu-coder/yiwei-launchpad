@@ -60,8 +60,8 @@ function switchQuality(q) {
 
 function renderVideoPlayer(url, name) {
   playerQuality = 'orig';
-  document.getElementById('vpQuality').value = 'orig';
-  const content = document.getElementById('playerContent');
+  const content = document.getElementById("playerContent");
+  content.style.cssText = "display:block;text-align:center;background:var(--bg);border-radius:10px;";
   content.innerHTML = `
     <div class="vp-container">
       <video id="mainVideo" preload="auto" style="max-width:100%;max-height:55vh;display:block;width:100%;cursor:pointer;background:#000;" src="/api/view/${encodeURIComponent(name)}">
@@ -83,11 +83,13 @@ function renderVideoPlayer(url, name) {
         <button class="vp-btn" onclick="vpNext()"><span class="mi">skip_next</span></button>
       </div>
     </div>`;
+  document.getElementById('vpQuality').value = playerQuality;
   bindVideoEvents();
 }
 
 function renderAudioPlayer(url, name) {
-  const content = document.getElementById('playerContent');
+  const content = document.getElementById("playerContent");
+  content.style.cssText = "display:block;text-align:center;background:var(--bg);border-radius:10px;";
   content.innerHTML = `
     <div style="text-align:center;padding:2rem;">
       <div style="font-size:5rem;margin-bottom:1rem;">🎵</div>
