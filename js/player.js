@@ -59,31 +59,25 @@ function switchQuality(q) {
 }
 
 function renderVideoPlayer(url, name) {
-  playerQuality = '720';
+  playerQuality = 'orig';
   const content = document.getElementById("playerContent");
   content.style.cssText = "display:block;text-align:center;background:var(--bg);border-radius:10px;";
-  const streamUrl = "/api/stream/" + encodeURIComponent(name) + "?q=720";
   content.innerHTML = `
     <div class="vp-container">
-      <video id="mainVideo" preload="none" playsinline style="max-width:100%;max-height:55vh;display:block;width:100%;cursor:pointer;background:#000;" src="${streamUrl}">
+      <video id="mainVideo" preload="metadata" playsinline controls
+        style="max-width:100%;max-height:55vh;display:block;width:100%;background:#000;"
+        src="/api/view/${encodeURIComponent(name)}">
       </video>
-      <div class="vp-big-play" id="vpBigPlay" onclick="vpBigPlay()" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;cursor:pointer;color:#fff;">\n        <span class="mi" style="font-size:4rem;">play_circle</span>\n        <div style="font-size:.8rem;color:#aaa;">720p</div>\n      </div>\n      <div class="vp-loading" id="vpLoading" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#fff;font-size:1.5rem;pointer-events:none;display:none;">⏳ 加载中...</div>
-      <div class="vp-controls" id="vpControls">
+      <div id="vpStatus" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#fff;font-size:1.2rem;pointer-events:none;background:rgba(0,0,0,0.7);padding:.8rem 1.5rem;border-radius:8px;">⏳ 加载中...</div>
+      <div class="vp-controls" id="vpControls" style="display:none;">
         <button class="vp-btn" onclick="vpPlayPause()" id="vpPlayBtn"><span class="mi">play_arrow</span></button>
         <span id="vpTime" class="vp-time">00:00 / 00:00</span>
-        <input type="range" id="vpProgress" class="vp-progress" value="0" min="0" max="100" oninput="vpSeek(this.value)" title="进度">
-        <input type="range" id="vpVolume" class="vp-volume" value="100" min="0" max="100" oninput="vpSetVolume(this.value)" title="音量">
-        <select id="vpQuality" onchange="switchQuality(this.value)" style="background:#333;color:#fff;border:1px solid #555;border-radius:4px;padding:.2rem .4rem;font-size:.75rem;cursor:pointer;">
-          <option value="orig">原始</option>
-          <option value="720" selected>720p</option>
-          <option value="480">480p</option>
-        </select>
+        <input type="range" id="vpProgress" class="vp-progress" value="0" min="0" max="100" oninput="vpSeek(this.value)">
+        <input type="range" id="vpVolume" class="vp-volume" value="100" min="0" max="100" oninput="vpSetVolume(this.value)">
         <button class="vp-btn" onclick="togglePiP()"><span class="mi">picture_in_picture</span></button>
         <button class="vp-btn" onclick="vpFullscreen()"><span class="mi">fullscreen</span></button>
-        <button class="vp-btn" onclick="vpNext()"><span class="mi">skip_next</span></button>
       </div>
     </div>`;
-  document.getElementById('vpQuality').value = playerQuality;
   bindVideoEvents();
 }
 
@@ -116,31 +110,25 @@ function bindVideoEvents() {
   const video = document.getElementById('mainVideo');
   if (!video) return;
   video.volume = localStorage.getItem('player-volume') ? parseFloat(localStorage.getItem('player-volume')) : 1;
-  const vpVol = document.getElementById('vpVolume');
-  if (vpVol) vpVol.value = Math.round(video.volume * 100);
-  const vpPlayBtn = document.getElementById('vpPlayBtn');
-  if (vpPlayBtn) vpPlayBtn.querySelector('.mi').textContent = 'play_arrow';
-
-  video.addEventListener('click', () => vpPlayPause());
-  video.addEventListener('play', () => { 
-    if (vpPlayBtn) vpPlayBtn.querySelector('.mi').textContent = 'pause'; 
-    const overlay = document.getElementById('vpBigPlay');
-    if (overlay) overlay.style.display = 'none';
-    const loading = document.getElementById('vpLoading');
-    if (loading) loading.style.display = 'none';
-  });
-  video.addEventListener('pause', () => { if (vpPlayBtn) vpPlayBtn.querySelector('.mi').textContent = 'play_arrow'; });
-  video.addEventListener('waiting', () => { const ld = document.getElementById('vpLoading'); if (ld) ld.style.display = 'block'; });
-  video.addEventListener('canplay', () => { const ld = document.getElementById('vpLoading'); if (ld) ld.style.display = 'none'; });
   
+  video.addEventListener('waiting', () => { 
+    const s = document.getElementById('vpStatus');
+    if (s) { s.style.display = 'block'; s.textContent = '⏳ 加载中...'; }
+  });
+  video.addEventListener('canplay', () => { 
+    const s = document.getElementById('vpStatus');
+    if (s) s.style.display = 'none';
+    const c = document.getElementById('vpControls');
+    if (c) c.style.display = 'flex';
+  });
   video.addEventListener('loadedmetadata', () => {
     const p = document.getElementById('vpProgress');
-    if (p) p.max = video.duration;
-    document.getElementById('vpLoading').style.display = 'none';
+    if (p) p.max = video.duration || 0;
+    document.getElementById('vpStatus').style.display = 'none';
+    document.getElementById('vpControls').style.display = 'flex';
     const q = document.getElementById('playerQuality');
     if (q) {
       const w = video.videoWidth, h = video.videoHeight;
-      const mb = (video.duration * (w * h * 30) / 8 / 1024 / 1024).toFixed(0);
       q.textContent = (w && h) ? `${w}×${h}` : '';
     }
   });
@@ -149,10 +137,13 @@ function bindVideoEvents() {
     const p = document.getElementById('vpProgress');
     if (p) { p.max = video.duration; p.value = video.currentTime; }
     document.getElementById('vpTime').textContent = fmtTime(video.currentTime) + ' / ' + fmtTime(video.duration);
-    const ma = document.getElementById('bgAudio');
-    if (ma && !ma.paused) ma.currentTime = video.currentTime;
   });
-  video.addEventListener('ended', () => vpNext());
+  video.addEventListener('play', () => {
+    document.getElementById('vpPlayBtn').querySelector('.mi').textContent = 'pause';
+  });
+  video.addEventListener('pause', () => {
+    document.getElementById('vpPlayBtn').querySelector('.mi').textContent = 'play_arrow';
+  });
 }
 
 function bindAudioEvents() {
@@ -181,15 +172,6 @@ function bindAudioEvents() {
     document.getElementById('vpTime').textContent = fmtTime(audio.currentTime) + ' / ' + fmtTime(audio.duration);
   });
   audio.addEventListener('ended', () => vpNext());
-}
-
-function vpBigPlay() {
-  const video = document.getElementById("mainVideo");
-  const overlay = document.getElementById("vpBigPlay");
-  if (!video) return;
-  overlay.style.display = "none";
-  document.getElementById("vpLoading").style.display = "block";
-  video.play();
 }
 
 function vpPlayPause() {
