@@ -288,7 +288,7 @@
     <span class="nav-icon">🔍</span><span>采集</span>
   </button>
   <button class="nav-item" data-panel="read">
-    <span class="nav-icon">📖</span><span>阅读</span>
+    <span class="nav-icon">👁️</span><span>预览</span>
   </button>
   <button class="theme-btn" id="themeBtn" title="主题">🌓</button>
 </nav>
@@ -360,7 +360,7 @@
   <div class="notes-layout">
     <div class="notes-sidebar">
       <button class="btn-new" onclick="newNote()">＋ 新建笔记</button>
-      <input type="text" id="noteSearch" placeholder="搜索笔记..." oninput="loadNoteList()" style="width:100%;padding:.4rem .6rem;border:1px solid var(--border);border-radius:7px;background:var(--card);color:var(--text);font-size:.8rem;outline:none;margin-top:.3rem;">
+      <input type="text" id="noteSearch" placeholder="搜索笔记..." oninput="loadNotesList()" style="width:100%;padding:.4rem .6rem;border:1px solid var(--border);border-radius:7px;background:var(--card);color:var(--text);font-size:.8rem;outline:none;margin-top:.3rem;">
       <div id="noteList"></div>
     </div>
     <div class="note-editor" id="noteEditor" style="display:none;">
@@ -437,9 +437,9 @@
 <div class="panel" id="panel-read" style="padding:0;max-width:100%;">
   <!-- 书架 -->
   <div id="readerShelf" style="padding:1.5rem 1rem;max-width:900px;margin:0 auto;">
-    <h2 style="margin-bottom:1rem;">📖 我的书架</h2>
+    <h2 style="margin-bottom:1rem;">👁️ 文件预览</h2>
     <div class="grid" id="readerBooks" style="grid-template-columns:repeat(auto-fill,minmax(140px,1fr));"></div>
-    <div class="empty-state" id="readerEmpty">还没有可读的文件<br><small>上传 EPUB / PDF / TXT / Markdown 到文件中转站即可</small></div>
+    <div class="empty-state" id="readerEmpty">还没有可预览的文件<br><small>上传 EPUB / PDF / TXT / Markdown / 图片 / 视频 到文件中转站即可</small></div>
   </div>
   <!-- 阅读视图 -->
   <div id="readerView" style="display:none;">
@@ -681,7 +681,7 @@ async function loadFiles() {
       const icon = isDir ? '📁' : '📄';
       const actions = isDir
         ? `<button class="btn-sm" onclick="renameFolder('${escAttr(f.name)}')">✏️</button><button class="btn-sm danger" onclick="deleteFolder('${escAttr(f.name)}')">🗑</button>`
-        : `<button class="btn-sm" onclick="previewFile('${escAttr(f.name)}')">预览</button><button class="btn-sm" onclick="copyLink('${escAttr(f.name)}')">复制链接</button><button class="btn-sm" onclick="downloadFile('${escAttr(f.name)}')">下载</button><button class="btn-sm danger" onclick="delFile('${escAttr(f.name)}')">删除</button>`;
+        : `<button class="btn-sm" onclick="previewFile('${escAttr(f.name)}')">预览</button><button class="btn-sm" onclick="copyLink('${escAttr(f.name)}')">复制链接</button><button class="btn-sm" onclick="downloadFile('${escAttr(f.name)}')">下载</button><button class="btn-sm" onclick="moveFile('${escAttr(f.name)}')">📁 移动</button><button class="btn-sm danger" onclick="delFile('${escAttr(f.name)}')">删除</button>`;
       return `
       <div class="file-row">
         <input type="checkbox" class="file-check" data-name="${escAttr(f.name)}" onchange="updateBatchBar()" style="flex-shrink:0;">
@@ -788,6 +788,30 @@ async function delFile(name) {
   if (!confirm(`确定删除「${name}」？`)) return;
   const r = await fetch('/api/files/' + encodeURIComponent(name), { method: 'DELETE' });
   if (r.ok) { toast('🗑️ 已移入回收站'); loadFiles(); updateStorageBar(); } else { toast('❌ 删除失败'); }
+}
+
+async function moveFile(name) {
+  // 获取所有可用文件夹
+  const files = await (await fetch('/api/files')).json();
+  const folders = [...new Set(files.filter(f => f.isDir).map(f => {
+    // 提取顶级文件夹名
+    const parts = f.name.split('/');
+    return parts[0];
+  }))];
+  
+  let target = prompt(
+    '移动到哪个文件夹？\n（输入文件夹名，留空移到根目录）\n\n可用文件夹：' + (folders.length ? folders.join(', ') : '（无）'),
+    ''
+  );
+  if (target === null) return; // 用户取消
+  target = (target || '').trim();
+  
+  const r = await fetch('/api/files/move', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, targetDir: target }),
+  });
+  if (r.ok) { toast('✅ 已移动到 ' + (target || '根目录')); loadFiles(); }
+  else { const d = await r.json(); toast('❌ ' + (d.error || '移动失败')); }
 }
 
 // ===== OCR 识别 =====
@@ -1377,11 +1401,11 @@ async function viewTiebaText(sessionId, filename) {
 }
 
 // ===== 阅读器 =====
-const READABLE_EXTS = ['epub','pdf','txt','md'];
+const READABLE_EXTS = ['epub','pdf','txt','md','jpg','jpeg','png','gif','webp','svg','bmp','mp4','webm','mov','mkv','mp3','wav','ogg','flac','aac'];
 let currentBook = null;
 let readerEpubRendition = null; // EPUB 翻页用
 let readerEpubBook = null;
-let readerType = null; // 'epub' | 'pdf' | 'txt'
+let readerType = null; // 'epub' | 'pdf' | 'txt' | 'image' | 'video' | 'audio'
 
 async function loadReaderBooks() {
   try {
@@ -1392,7 +1416,7 @@ async function loadReaderBooks() {
     if (!books.length) { el.innerHTML = ''; empty.style.display = 'block'; return; }
     empty.style.display = 'none';
     
-    const icons = { epub:'📗', pdf:'📕', txt:'📄', md:'📝' };
+    const icons = { epub:'📗', pdf:'📕', txt:'📄', md:'📝', jpg:'🖼️', jpeg:'🖼️', png:'🖼️', gif:'🖼️', webp:'🖼️', svg:'🖼️', bmp:'🖼️', mp4:'🎬', webm:'🎬', mov:'🎬', mkv:'🎬', mp3:'🎵', wav:'🎵', ogg:'🎵', flac:'🎵', aac:'🎵' };
     el.innerHTML = books.map(b => {
       const ext = b.name.split('.').pop().toLowerCase();
       const progress = JSON.parse(localStorage.getItem('read-' + b.name) || '{}');
@@ -1429,7 +1453,35 @@ async function openBook(name) {
   
   if (ext === 'pdf') {
     // PDF: browser's built-in viewer
-    content.innerHTML = '<iframe src="/api/view/' + encodeURIComponent(name) + '" style="width:100%;height:100%;border:none;"></iframe>';
+    content.innerHTML = '<div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.5rem;"><a href="/api/dl/' + encodeURIComponent(name) + '" class="btn-sm" style="text-decoration:none;">⬇ 下载</a></div><iframe src="/api/view/' + encodeURIComponent(name) + '" style="width:100%;height:100%;border:none;"></iframe>';
+  } else if (['jpg','jpeg','png','gif','webp','svg','bmp'].includes(ext)) {
+    // 图片预览 + OCR
+    content.innerHTML = `
+      <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.8rem;flex-wrap:wrap;">
+        <button class="btn-sm" onclick="ocrInReader('${escAttr(name)}')" id="readerOcrBtn">🔍 OCR 识别</button>
+        <a href="/api/dl/${encodeURIComponent(name)}" class="btn-sm" style="text-decoration:none;">⬇ 下载</a>
+      </div>
+      <div style="overflow:auto;text-align:center;">
+        <img src="/api/view/${encodeURIComponent(name)}" style="max-width:100%;max-height:70vh;" onerror="this.parentElement.innerHTML='<div style=text-align:center;padding:3rem;>❌ 无法加载图片</div>'">
+      </div>
+      <div id="readerOcrResult" style="margin-top:.8rem;padding:.8rem;background:var(--card);border:1px solid var(--border);border-radius:8px;font-size:.9rem;white-space:pre-wrap;word-break:break-word;display:none;"></div>
+    `;
+  } else if (['mp4','webm','mov','mkv'].includes(ext)) {
+    content.innerHTML = `
+      <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.8rem;flex-wrap:wrap;">
+        <a href="/api/m3u/${encodeURIComponent(name)}" class="btn-sm" style="text-decoration:none;background:#f97316;color:#fff;">📺 外部播放器</a>
+        <a href="/api/dl/${encodeURIComponent(name)}" class="btn-sm" style="text-decoration:none;">⬇ 下载</a>
+      </div>
+      <video controls style="max-width:100%;max-height:70vh;display:block;margin:0 auto;border-radius:6px;"><source src="/api/view/${encodeURIComponent(name)}"></video>
+    `;
+  } else if (['mp3','wav','ogg','flac','aac'].includes(ext)) {
+    content.innerHTML = `
+      <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.8rem;flex-wrap:wrap;">
+        <a href="/api/dl/${encodeURIComponent(name)}" class="btn-sm" style="text-decoration:none;">⬇ 下载</a>
+      </div>
+      <div style="text-align:center;padding:2rem;"><div style="font-size:4rem;">🎵</div>
+      <audio controls style="width:100%;max-width:400px;margin-top:1rem;"><source src="/api/view/${encodeURIComponent(name)}"></audio></div>
+    `;
   } else if (ext === 'epub') {
     // EPUB: use epub.js
     if (typeof ePub === 'undefined') {
@@ -1524,6 +1576,22 @@ function closeReader() {
   readerType = null;
   if (document.fullscreenElement) document.exitFullscreen();
   loadReaderBooks();
+}
+
+// ===== 阅读器内 OCR =====
+async function ocrInReader(name) {
+  const btn = document.getElementById('readerOcrBtn');
+  const resultDiv = document.getElementById('readerOcrResult');
+  btn.disabled = true; btn.textContent = '⏳ 识别中...';
+  resultDiv.style.display = 'block';
+  resultDiv.textContent = '正在识别文字，请稍候...';
+  try {
+    const r = await fetch('/api/ocr', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
+    const data = await r.json();
+    if (data.error) { resultDiv.textContent = '❌ ' + data.error; return; }
+    resultDiv.textContent = data.text || '（未识别到文字）';
+  } catch(e) { resultDiv.textContent = '❌ 请求失败：' + e.message; }
+  finally { btn.disabled = false; btn.textContent = '🔍 OCR 识别'; }
 }
 
 // ===== 键盘控制 =====

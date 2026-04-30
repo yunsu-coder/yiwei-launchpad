@@ -349,6 +349,20 @@ const server = http.createServer(async (req, res) => {
   }
 
   // --- 文件夹操作 ---
+  // 移动文件到文件夹
+  if (p === '/api/files/move' && m === 'POST') {
+    const body = parseJSON(await readBody(req));
+    if (!body?.name || body.targetDir === undefined) return sendJSON(res, 400, { error: '缺少参数' });
+    const srcPath = getFilePath(body.name);
+    if (!srcPath) return sendJSON(res, 404, { error: '文件不存在' });
+    const targetDir = path.join(FILES_DIR, body.targetDir || '');
+    if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
+    const destPath = path.join(targetDir, path.basename(srcPath));
+    if (fs.existsSync(destPath) && !body.overwrite)
+      return sendJSON(res, 409, { error: '目标位置已存在同名文件' });
+    fs.renameSync(srcPath, destPath);
+    return sendJSON(res, 200, { ok: true });
+  }
   if (p === '/api/folders' && m === 'POST') {
     const body = parseJSON(await readBody(req));
     if (!body?.name) return sendJSON(res, 400, { error: '缺少文件夹名' });
