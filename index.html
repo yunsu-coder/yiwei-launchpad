@@ -99,6 +99,8 @@
     border:1px solid var(--border); gap:.5rem;
   }
   .file-row .fname { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:.85rem; }
+  .file-row .fname-text { cursor:pointer; display:inline-block; }
+  .file-row .fname-text:hover { color:var(--accent); }
   .file-row .fsize { color:var(--sub); font-size:.72rem; min-width:55px; text-align:right; }
   .file-row .actions { display:flex; gap:.2rem; }
   .file-row.drag-over { border-color:var(--accent); background:var(--hover); box-shadow:0 0 0 2px var(--accent); }

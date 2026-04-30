@@ -227,7 +227,7 @@ async function loadFiles() {
         <div class="file-row" style="cursor:default;" onclick="toggleFileCheck(this)"
              ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, '${escAttr(f.relPath)}')">
           <input type="checkbox" class="file-check" data-name="${escAttr(f.relPath)}" onclick="event.stopPropagation();updateBatchBar();" style="flex-shrink:0;">
-          <span class="fname" style="cursor:pointer;" onclick="event.stopPropagation();navigateTo('${escAttr(f.relPath)}')" title="进入目录">📁 ${escHtml(f.name)}</span>
+          <span class="fname"><span class="fname-text" onclick="event.stopPropagation();navigateTo('${escAttr(f.relPath)}')" title="进入目录">📁 ${escHtml(f.name)}</span></span>
           <span class="fsize"></span>
           <span class="fsize">${new Date(f.mtime).toLocaleDateString('zh-CN')}</span>
           <div class="actions" onclick="event.stopPropagation();">
@@ -240,8 +240,8 @@ async function loadFiles() {
       return `
         <div class="file-row" style="cursor:default;" onclick="toggleFileCheck(this)">
           <input type="checkbox" class="file-check" data-name="${escAttr(f.relPath)}" onclick="event.stopPropagation();updateBatchBar();" style="flex-shrink:0;">
-          <span class="fname" style="cursor:pointer;" onclick="event.stopPropagation();previewFile('${escAttr(f.relPath)}')" 
-                draggable="true" ondragstart="handleDragStart(event, '${escAttr(f.relPath)}')" ondragend="handleDragEnd(event)" title="点击预览 / 拖拽移动">📄 ${escHtml(f.name)}</span>
+          <span class="fname"><span class="fname-text" onclick="event.stopPropagation();previewFile('${escAttr(f.relPath)}')" 
+                draggable="true" ondragstart="handleDragStart(event, '${escAttr(f.relPath)}')" ondragend="handleDragEnd(event)" title="点击预览 / 拖拽移动">📄 ${escHtml(f.name)}</span></span>
           <span class="fsize">${f.isDir ? '' : sz(f.size)}</span>
           <span class="fsize">${new Date(f.mtime).toLocaleDateString('zh-CN')}</span>
           <div class="actions" onclick="event.stopPropagation();">
