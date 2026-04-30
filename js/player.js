@@ -48,7 +48,9 @@ function switchQuality(q) {
   playerQuality = q;
   const video = document.getElementById('mainVideo');
   if (!video || !playerCurrent) return;
-  const url = '/api/stream/' + encodeURIComponent(playerCurrent) + '?q=' + q;
+  const url = q === 'orig'
+    ? '/api/view/' + encodeURIComponent(playerCurrent)
+    : '/api/stream/' + encodeURIComponent(playerCurrent) + '?q=' + q;
   const ct = video.currentTime;
   const wasPlaying = !video.paused;
   video.src = url;
@@ -62,8 +64,7 @@ function renderVideoPlayer(url, name) {
   const content = document.getElementById('playerContent');
   content.innerHTML = `
     <div class="vp-container">
-      <video id="mainVideo" preload="auto" style="max-width:100%;max-height:55vh;display:block;width:100%;cursor:pointer;background:#000;">
-        <source src="/api/stream/${encodeURIComponent(name)}?q=${playerQuality}" type="video/mp4">
+      <video id="mainVideo" preload="auto" style="max-width:100%;max-height:55vh;display:block;width:100%;cursor:pointer;background:#000;" src="/api/view/${encodeURIComponent(name)}">
       </video>
       <div class="vp-loading" id="vpLoading" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#fff;font-size:1.5rem;pointer-events:none;">⏳ 加载中...</div>
       <div class="vp-controls" id="vpControls">
