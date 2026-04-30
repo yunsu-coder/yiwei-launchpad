@@ -29,15 +29,17 @@ document.querySelectorAll('.nav-item').forEach(btn => {
 
 // ===== 主题 =====
 const themeBtn = document.getElementById('themeBtn');
-if (localStorage.getItem('theme') === 'dark') document.body.classList.add('dark');
+const savedTheme = localStorage.getItem('theme') || 'dark';
+if (savedTheme === 'light') document.body.classList.add('light');
 updateThemeIcon();
 themeBtn.addEventListener('click', () => {
-  document.body.classList.toggle('dark');
-  localStorage.setItem('theme', document.body.classList.contains('dark') ? 'dark' : 'light');
+  document.body.classList.toggle('light');
+  const t = document.body.classList.contains('light') ? 'light' : 'dark';
+  localStorage.setItem('theme', t);
   updateThemeIcon();
 });
 function updateThemeIcon() {
-  themeBtn.textContent = document.body.classList.contains('dark') ? 'light_mode' : 'dark_mode';
+  themeBtn.textContent = document.body.classList.contains('light') ? 'dark_mode' : 'light_mode';
 }
 
 // ===== Toast =====
