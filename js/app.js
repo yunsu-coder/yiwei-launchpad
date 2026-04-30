@@ -124,8 +124,8 @@ const LINKS = {
   tools: [
     { name:'Convertio', url:'https://convertio.co/zh/', icon:'🔄' },
     { name:'Photopea', url:'https://www.photopea.com', icon:'🎨' },
-    { name:'DeepL 翻译', url:'https://www.deepl.com/translator', icon:'🌍' },
-    { name:'临时邮箱', url:'https://temp-mail.org/zh/', icon:'📬' },
+    { name:'TinyPNG', url:'https://tinypng.com', icon:'🗜️' },
+    { name:'工具集合', url:'https://tool.lu', icon:'🧰' },
     { name:'草料二维码', url:'https://cli.im', icon:'📱' },
     { name:'Excalidraw', url:'https://excalidraw.com', icon:'✏️' },
   ],
