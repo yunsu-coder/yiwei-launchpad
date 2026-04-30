@@ -261,7 +261,8 @@
 
   /* 播放器 */
   .vp-container { background:#000; border-radius:10px; overflow:hidden; position:relative; display:flex; flex-direction:column; width:100%; }
-  .vp-container:fullscreen { border-radius:0; }
+  .vp-container:fullscreen { border-radius:0; width:100vw; height:100vh; }
+  .vp-container:fullscreen video { max-height:100vh !important; height:100vh; }
   .vp-container video { display:block; flex:1; min-height:0; }
   .vp-controls { display:flex; align-items:center; gap:.3rem; padding:.5rem .8rem; background:rgba(0,0,0,0.9); flex-wrap:wrap; order:2; }
   .vp-btn { background:none; border:none; color:#fff; cursor:pointer; padding:.2rem; border-radius:4px; }
