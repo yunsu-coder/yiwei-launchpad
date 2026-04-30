@@ -2,11 +2,12 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { URL } = require('url');
 
 const { getStatus, listFiles, uploadFiles, deleteFile, getFilePath, getFilePreview,
         listNotes, saveNote, getNote, deleteNote, parseMultipart, invalidateSizeCache, MAX_STORAGE } = require('./lib/storage');
-const { doScrape, listSessions, getSession, deleteSession, transferSession } = require('./lib/scraper');
+const { doScrape, listSessions, getSession, deleteSession, transferSession, scrapeTieba } = require('./lib/scraper');
 
 // ===== 加载环境变量 =====
 const envPath = path.join(__dirname, '.env');
@@ -345,6 +346,29 @@ const server = http.createServer(async (req, res) => {
   }
 
   // --- 采集 ---
+  // 百度贴吧采集
+  if (p === '/api/scrape/tieba' && m === 'POST') {
+    const body = parseJSON(await readBody(req));
+    if (!body?.kw) return sendJSON(res, 400, { error: '请输入贴吧名称' });
+    const sessionId = 'tb_' + Date.now().toString(36) + '_' + crypto.randomBytes(3).toString('hex');
+    const sessionDir = path.join(__dirname, 'scrape', sessionId);
+    fs.mkdirSync(sessionDir, { recursive: true });
+    fs.mkdirSync(path.join(sessionDir, 'images'), { recursive: true });
+
+    try {
+      const result = await scrapeTieba(body.kw, {
+        maxPages: body.maxPages || 2,
+        maxThreads: body.maxThreads || 15,
+        includeComments: body.includeComments !== false,
+        sessionDir,
+      });
+      result.sessionId = sessionId;
+      fs.writeFileSync(path.join(sessionDir, 'result.json'), JSON.stringify(result, null, 2));
+      return sendJSON(res, 200, result);
+    } catch (e) {
+      return sendJSON(res, 500, { error: e.message });
+    }
+  }
   if (p === '/api/scrape' && m === 'POST') {
     const body = parseJSON(await readBody(req));
     if (!body || !body.urls || !body.urls.length) return sendJSON(res, 400, { error: '请输入至少一个网址' });
