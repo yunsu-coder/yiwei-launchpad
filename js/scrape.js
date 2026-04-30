@@ -142,7 +142,7 @@ async function loadScrapeSessions() {
         continue;
       }
       // 常规采集会话
-      const typeLabel = s.type === 'images' ? '📷 图片' : s.type === 'text' ? '📄 文本' : '📷📄 图片+文本';
+      const typeLabel = s.type === 'images' ? '📷 图片' : s.type === 'text' ? '📄 文本' : s.type === 'video' ? '🎬 视频' : s.type === 'music' ? '🎵 音频' : '📷📄 图片+文本';
       const card = document.createElement('div');
       card.className = 'scrape-card';
       card.innerHTML = `
