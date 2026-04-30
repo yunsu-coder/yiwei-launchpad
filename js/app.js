@@ -28,18 +28,41 @@ document.querySelectorAll('.nav-item').forEach(btn => {
 });
 
 // ===== 主题 =====
+const themes = ['azure','emerald','ember','snow','midnight'];
 const themeBtn = document.getElementById('themeBtn');
-const savedTheme = localStorage.getItem('theme') || 'dark';
-if (savedTheme === 'light') document.body.classList.add('light');
-updateThemeIcon();
+let currentTheme = localStorage.getItem('theme') || 'azure';
+applyTheme(currentTheme);
 themeBtn.addEventListener('click', () => {
-  document.body.classList.toggle('light');
-  const t = document.body.classList.contains('light') ? 'light' : 'dark';
-  localStorage.setItem('theme', t);
-  updateThemeIcon();
+  const idx = themes.indexOf(currentTheme);
+  currentTheme = themes[(idx + 1) % themes.length];
+  localStorage.setItem('theme', currentTheme);
+  applyTheme(currentTheme);
 });
-function updateThemeIcon() {
-  themeBtn.textContent = document.body.classList.contains('light') ? 'dark_mode' : 'light_mode';
+let themeMenu = null;
+themeBtn.addEventListener('contextmenu', e => {
+  e.preventDefault();
+  if (themeMenu) { themeMenu.remove(); themeMenu = null; return; }
+  themeMenu = document.createElement('div');
+  themeMenu.style.cssText = 'position:fixed;z-index:9999;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:.3rem;box-shadow:0 8px 24px rgba(0,0,0,0.4);';
+  themeMenu.style.left = e.clientX + 'px'; themeMenu.style.top = e.clientY + 'px';
+  const names = {azure:'① 青蓝科技',emerald:'② 暗夜绿',ember:'③ 暖橙棕',snow:'④ 极简白',midnight:'⑤ 墨绿金'};
+  themes.forEach(t => {
+    const item = document.createElement('div');
+    item.style.cssText = 'padding:.4rem .8rem;cursor:pointer;border-radius:6px;font-size:.8rem;white-space:nowrap;color:var(--text);';
+    item.textContent = names[t];
+    item.onmouseenter = () => item.style.background = 'var(--hover)';
+    item.onmouseleave = () => item.style.background = '';
+    item.onclick = () => { currentTheme = t; localStorage.setItem('theme', t); applyTheme(t); themeMenu.remove(); themeMenu = null; };
+    themeMenu.appendChild(item);
+  });
+  document.body.appendChild(themeMenu);
+  setTimeout(() => document.addEventListener('click', () => { if (themeMenu) { themeMenu.remove(); themeMenu = null; } }, { once: true }), 0);
+});
+function applyTheme(t) {
+  currentTheme = t;
+  document.body.setAttribute('data-theme', t);
+  themeBtn.textContent = 'palette';
+  themeBtn.title = '左键切换主题 | 右键打开菜单';
 }
 
 // ===== Toast =====

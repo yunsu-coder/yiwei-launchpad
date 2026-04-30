@@ -7,7 +7,8 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
 <link rel="stylesheet" href="/css/styles.css">
 <style>
-  :root {
+  /* ── ① 青蓝科技（默认）── */
+  :root, body[data-theme="azure"] {
     --bg: #0d0d12; --card: #15151e; --text: #e4e4ee; --sub: #7e7e9a;
     --border: #1e1e2e; --accent: #5b8dee; --accent2: #a78bfa;
     --hover: #1c1c2a; --shadow: 0 1px 4px rgba(0,0,0,0.4);
@@ -15,21 +16,41 @@
     --editor-bg: #0f0f1a; --preview-bg: #15151e;
     --nav-bg: rgba(21,21,30,0.85); --glow: 0 0 20px rgba(91,141,238,0.15);
   }
-  .dark {
-    --bg: #0d0d12; --card: #15151e; --text: #e4e4ee; --sub: #7e7e9a;
-    --border: #1e1e2e; --accent: #5b8dee; --accent2: #a78bfa;
-    --hover: #1c1c2a; --shadow: 0 1px 4px rgba(0,0,0,0.4);
+  /* ── ② 暗夜绿 ── */
+  body[data-theme="emerald"] {
+    --bg: #0d1210; --card: #151d18; --text: #e4eee8; --sub: #7e9a8a;
+    --border: #1e2e24; --accent: #34d399; --accent2: #6ee7b7;
+    --hover: #1c2a22; --shadow: 0 1px 4px rgba(0,0,0,0.4);
     --danger: #f87171; --ok: #4ade80; --warn: #fbbf24;
-    --editor-bg: #0f0f1a; --preview-bg: #15151e;
-    --nav-bg: rgba(21,21,30,0.85); --glow: 0 0 20px rgba(91,141,238,0.15);
+    --editor-bg: #0f1a14; --preview-bg: #151d18;
+    --nav-bg: rgba(21,29,24,0.85); --glow: 0 0 20px rgba(52,211,153,0.15);
   }
-  body.light {
-    --bg: #f5f5f8; --card: #ffffff; --text: #1a1a28; --sub: #6b6b80;
+  /* ── ③ 暖橙棕 ── */
+  body[data-theme="ember"] {
+    --bg: #1a1410; --card: #241d16; --text: #eee4dc; --sub: #9a8a7a;
+    --border: #2e241a; --accent: #f59e0b; --accent2: #fbbf24;
+    --hover: #2a2018; --shadow: 0 1px 4px rgba(0,0,0,0.4);
+    --danger: #f87171; --ok: #4ade80; --warn: #fbbf24;
+    --editor-bg: #1a1610; --preview-bg: #241d16;
+    --nav-bg: rgba(36,29,22,0.85); --glow: 0 0 20px rgba(245,158,11,0.15);
+  }
+  /* ── ④ 极简白 ── */
+  body[data-theme="snow"] {
+    --bg: #f8f8fa; --card: #ffffff; --text: #1a1a28; --sub: #6b6b80;
     --border: #e2e2ec; --accent: #4f6fd4; --accent2: #7c6ff7;
     --hover: #f0f0f8; --shadow: 0 1px 3px rgba(0,0,0,0.06);
     --danger: #ef4444; --ok: #22c55e; --warn: #f59e0b;
     --editor-bg: #fafafc; --preview-bg: #ffffff;
     --nav-bg: rgba(255,255,255,0.85); --glow: 0 0 20px rgba(79,111,212,0.08);
+  }
+  /* ── ⑤ 墨绿金 ── */
+  body[data-theme="midnight"] {
+    --bg: #0f1410; --card: #171e18; --text: #e4ece6; --sub: #7e9684;
+    --border: #1e2a20; --accent: #ca8a04; --accent2: #eab308;
+    --hover: #1c261e; --shadow: 0 1px 4px rgba(0,0,0,0.4);
+    --danger: #f87171; --ok: #4ade80; --warn: #fbbf24;
+    --editor-bg: #101a12; --preview-bg: #171e18;
+    --nav-bg: rgba(23,30,24,0.85); --glow: 0 0 20px rgba(202,138,4,0.15);
   }
   * { margin:0; padding:0; box-sizing:border-box; }
   .mi { font-family:'Material Symbols Outlined'; font-weight:400; font-style:normal; font-size:24px; display:inline-block; line-height:1; vertical-align:middle; }
