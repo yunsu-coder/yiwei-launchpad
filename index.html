@@ -137,6 +137,19 @@
   .drop-zone .hint strong { color:var(--accent); }
   .file-list { display:flex; flex-direction:column; gap:.25rem; min-height:40px; border-radius:8px; transition:background .2s; }
   .file-list.drag-over { background:var(--hover); }
+  .file-list.drag-over { background:var(--hover); }
+
+  /* 网格视图 */
+  .file-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:.5rem; min-height:40px; border-radius:8px; transition:background .2s; }
+  .file-grid.drag-over { background:var(--hover); }
+  .file-card { background:var(--card); border:1px solid var(--border); border-radius:8px; overflow:hidden; transition:transform .15s,box-shadow .15s; }
+  .file-card:hover { transform:translateY(-2px); box-shadow:0 4px 12px rgba(0,0,0,0.2); }
+  .file-card-preview { width:100%; height:90px; background:var(--bg); display:flex; align-items:center; justify-content:center; cursor:pointer; overflow:hidden; }
+  .file-card-icon { font-size:2rem; }
+  .file-card-name { padding:.3rem .4rem; font-size:.72rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer; }
+  .file-card-name:hover { color:var(--accent); }
+  .file-card-size { padding:0 .4rem .3rem; font-size:.65rem; color:var(--sub); }
+
   .file-row {
     display:flex; align-items:center; justify-content:space-between;
     padding:.5rem .7rem; background:var(--card); border-radius:8px;
@@ -344,12 +357,6 @@
   <button class="nav-item" data-panel="scrape">
     <span class="nav-icon mi">travel_explore</span><span>采集</span>
   </button>
-  <button class="nav-item" data-panel="read">
-    <span class="nav-icon mi">visibility</span><span>预览</span>
-  </button>
-  <button class="nav-item" data-panel="trash">
-    <span class="nav-icon mi">delete</span><span>回收站</span>
-  </button>
   <button class="theme-btn mi" id="themeBtn" title="主题">dark_mode</button>
 </nav>
 
@@ -387,14 +394,26 @@
   <div id="fileBreadcrumb" style="display:flex;gap:.3rem;align-items:center;margin-bottom:.6rem;font-size:.8rem;flex-wrap:wrap;"></div>
   <!-- 搜索 & 排序 & 操作 -->
   <div style="display:flex;gap:.5rem;margin-bottom:.8rem;align-items:center;flex-wrap:wrap;">
-    <input type="text" id="fileSearch" placeholder="搜索文件名..." oninput="loadFiles()" style="flex:1;padding:.4rem .6rem;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:.85rem;outline:none;min-width:120px;">
+    <button class="btn-sm" id="trashToggle" onclick="toggleFileTrash()" title="回收站" style="flex-shrink:0;"><span class="mi">delete</span></button>
+    <input type="text" id="fileSearch" placeholder="搜索文件名..." oninput="loadFiles()" style="flex:1;padding:.4rem .6rem;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:.85rem;outline:none;min-width:100px;">
     <select id="fileSort" onchange="loadFiles()" style="padding:.4rem .6rem;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:.8rem;">
       <option value="date-desc">时间↓</option><option value="date-asc">时间↑</option>
       <option value="name-asc">名称 A-Z</option><option value="name-desc">名称 Z-A</option>
       <option value="size-desc">大小↓</option><option value="size-asc">大小↑</option>
     </select>
-    <button class="btn-sm" onclick="createFolder()" title="新建文件夹"> <span class="mi">create_new_folder</span> </button>
-    <button class="btn-sm" onclick="switchPanel('trash')" title="回收站"><span class="mi">delete</span> </button>
+    <button class="btn-sm" id="viewToggle" onclick="toggleFileView()" title="切换视图"><span class="mi">grid_view</span></button>
+    <button class="btn-sm" onclick="createFolder()" title="新建文件夹"><span class="mi">create_new_folder</span></button>
+  </div>
+  <!-- 回收站抽屉 -->
+  <div id="trashDrawer" style="display:none;margin-bottom:.6rem;padding:.6rem;background:var(--card);border:1px solid var(--border);border-radius:10px;">
+    <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem;">
+      <span style="font-weight:600;font-size:.85rem;"><span class="mi">delete</span> 回收站</span>
+      <span style="color:var(--sub);font-size:.75rem;" id="trashCount"></span>
+      <button class="btn-sm danger" onclick="emptyTrash()" style="margin-left:auto;font-size:.75rem;">清空</button>
+      <button class="btn-sm" onclick="toggleFileTrash()" style="font-size:.75rem;">✕</button>
+    </div>
+    <div class="file-list" id="trashList"></div>
+    <div class="empty-state" id="trashEmpty" style="display:none;">回收站为空</div>
   </div>
   <div id="batchBar" style="display:none;align-items:center;gap:.5rem;margin-bottom:.5rem;padding:.4rem .6rem;background:var(--card);border:1px solid var(--border);border-radius:8px;font-size:.8rem;">
     <label style="display:flex;align-items:center;gap:.3rem;cursor:pointer;"><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"> 全选</label>
@@ -402,19 +421,9 @@
     <button class="btn-sm danger" onclick="batchDelete()" style="margin-left:auto;">🗑 删除选中</button>
   </div>
   <div class="file-list" id="fileList" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, '')"></div>
+  <div class="file-grid" id="fileGrid" style="display:none;" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, '')"></div>
   <div class="empty-state" id="filesEmpty">暂无文件，上传一个吧</div>
 </div>
-
-<!-- 回收站 -->
-<div class="panel" id="panel-trash">
-  <h2 style="margin-bottom:.5rem;"><span class="mi">delete</span> 回收站</h2>
-  <p style="color:var(--sub);font-size:.8rem;margin-bottom:.8rem;">被删除的文件和文件夹会保留在这里</p>
-  <div style="display:flex;gap:.5rem;margin-bottom:.8rem;">
-    <button class="btn danger" onclick="emptyTrash()" style="font-size:.8rem;">清空回收站</button>
-    <span style="color:var(--sub);font-size:.75rem;margin-left:auto;align-self:center;" id="trashCount"></span>
-  </div>
-  <div class="file-list" id="trashList"></div>
-  <div class="empty-state" id="trashEmpty">回收站为空</div>
 </div>
 
 <!-- 笔记 -->

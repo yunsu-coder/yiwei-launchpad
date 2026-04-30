@@ -20,7 +20,6 @@ function switchPanel(name) {
   if (name === 'notes') loadNotesList();
   if (name === 'scrape') loadScrapeSessions();
   if (name === 'read') loadReaderBooks();
-  if (name === 'trash') loadTrash();
 }
 
 document.querySelectorAll('.nav-item').forEach(btn => {
@@ -288,6 +287,33 @@ async function loadFiles() {
           </div>
         </div>`;
     }).join('');
+
+    // 网格视图
+    const grid = document.getElementById('fileGrid');
+    const imgExts = ['jpg','jpeg','png','gif','webp','svg','bmp','ico'];
+    grid.innerHTML = filtered.map(f => {
+      if (f.isDir) {
+        return `<div class="file-card" onclick="navigateTo('${escAttr(f.relPath)}')" oncontextmenu="showFileMenu(event, '${escAttr(f.relPath)}', true);return false;">
+          <div class="file-card-icon">📁</div>
+          <div class="file-card-name">${escHtml(f.name)}</div>
+        </div>`;
+      }
+      const ext = (f.name||'').split('.').pop().toLowerCase();
+      const isImg = imgExts.includes(ext);
+      const preview = isImg ? `<img src="/api/view/${encodeURIComponent(f.relPath)}" loading="lazy" style="width:100%;height:100%;object-fit:cover;">` : `<div class="file-card-icon">📄</div>`;
+      const dragAttr = isImg ? `draggable="true" ondragstart="handleDragStart(event, '${escAttr(f.relPath)}')" ondragend="handleDragEnd(event)"` : '';
+      return `<div class="file-card" oncontextmenu="showFileMenu(event, '${escAttr(f.relPath)}', false);return false;">
+        <div class="file-card-preview" ${dragAttr} onclick="previewFile('${escAttr(f.relPath)}')">${preview}</div>
+        <div class="file-card-name" onclick="previewFile('${escAttr(f.relPath)}')" title="点击预览">${escHtml(f.name)}</div>
+        <div class="file-card-size">${sz(f.size)}</div>
+      </div>`;
+    }).join('');
+
+    // 初始化视图模式
+    if (fileViewMode === 'grid') {
+      document.getElementById('fileList').style.display = 'none';
+      document.getElementById('fileGrid').style.display = '';
+    }
   } catch(e) { console.error(e); }
 }
 
@@ -384,6 +410,8 @@ document.addEventListener('keydown', e => {
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || document.activeElement?.isContentEditable) return;
   
   if (currentPanel === 'files') {
+    const drawer = document.getElementById('trashDrawer');
+    if (drawer && drawer.style.display === 'block') { emptyTrash(); return; }
     const checked = document.querySelectorAll('.file-check:checked');
     if (checked.length) { batchDelete(); return; }
   }
@@ -394,7 +422,6 @@ document.addEventListener('keydown', e => {
     const first = document.querySelector('.scrape-check');
     if (first) { first.checked = true; updateScrapeBatchBar(); batchDelScrape(); return; }
   }
-  if (currentPanel === 'trash') { emptyTrash(); return; }
   if (currentPanel === 'read' && currentBook) { closeReader(); return; }
 });
 
@@ -522,6 +549,25 @@ async function batchDelete() {
 }
 
 // ===== 文件夹 & 回收站 =====
+let fileViewMode = localStorage.getItem('fileView') || 'list';
+
+function toggleFileView() {
+  fileViewMode = fileViewMode === 'list' ? 'grid' : 'list';
+  localStorage.setItem('fileView', fileViewMode);
+  const btn = document.getElementById('viewToggle');
+  const icon = btn.querySelector('.mi');
+  icon.textContent = fileViewMode === 'list' ? 'grid_view' : 'list';
+  document.getElementById('fileList').style.display = fileViewMode === 'list' ? '' : 'none';
+  document.getElementById('fileGrid').style.display = fileViewMode === 'grid' ? '' : 'none';
+  loadFiles();
+}
+
+function toggleFileTrash() {
+  const drawer = document.getElementById('trashDrawer');
+  const visible = drawer.style.display === 'block';
+  drawer.style.display = visible ? 'none' : 'block';
+  if (!visible) loadTrash();
+}
 async function createFolder() {
   const name = prompt('请输入文件夹名称:');
   if (!name || !name.trim()) return;
@@ -1117,7 +1163,7 @@ document.addEventListener('mouseup', function(e) {
 // ===== 刷新恢复面板 =====
 (function(){
   const hash = location.hash.slice(1);
-  const valid = ['home','files','notes','scrape','read','trash'];
+  const valid = ['home','files','notes','scrape'];
   if (hash && valid.includes(hash)) switchPanel(hash);
 })();
 
@@ -1245,4 +1291,37 @@ async function uploadNoteImage(blob, name) {
     toast('❌ 上传失败：' + e.message);
   }
   renderLive();
+}
+
+function showFileMenu(e, name, isDir) {
+  e.preventDefault();
+  const old = document.querySelector('.file-menu');
+  if (old) old.remove();
+  const menu = document.createElement('div');
+  menu.className = 'file-menu';
+  menu.style.cssText = `position:fixed;left:${e.clientX}px;top:${e.clientY}px;z-index:9999;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:.3rem;box-shadow:0 8px 24px rgba(0,0,0,0.4);min-width:140px;`;
+  const items = [
+    { label: '👁️ 预览', action: `previewFile('${escAttr(name)}')` },
+    { label: '⬇ 下载', action: `downloadFile('${escAttr(name)}')` },
+    { label: '📋 复制链接', action: `copyLink('${escAttr(name)}')` },
+    { label: '🗑 删除', action: `if(confirm('确定删除？'))delFile('${escAttr(name)}')`, danger: true },
+  ];
+  if (isDir) {
+    items.splice(0, 3, 
+      { label: '📂 打开', action: `navigateTo('${escAttr(name)}')` },
+      { label: '✏️ 重命名', action: `renameFolder('${escAttr(name)}')` },
+      { label: '🗑 删除', action: `if(confirm('确定删除？'))deleteFolder('${escAttr(name)}')`, danger: true },
+    );
+  }
+  items.forEach(item => {
+    const div = document.createElement('div');
+    div.style.cssText = `padding:.4rem .8rem;cursor:pointer;border-radius:6px;font-size:.8rem;white-space:nowrap;color:${item.danger?'var(--danger)':'var(--text)'};`;
+    div.textContent = item.label;
+    div.onmouseenter = () => div.style.background = 'var(--hover)';
+    div.onmouseleave = () => div.style.background = '';
+    div.onclick = () => { eval(item.action); menu.remove(); };
+    menu.appendChild(div);
+  });
+  document.body.appendChild(menu);
+  setTimeout(() => document.addEventListener('click', () => menu.remove(), { once: true }), 0);
 }
