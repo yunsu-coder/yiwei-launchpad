@@ -477,7 +477,7 @@
     <button class="btn-sm" onclick="fillScrapeUrl('doc')"><span class="mi">description</span> 文档</button>
   </div>
   <div class="scrape-form">
-    <textarea id="scrapeUrls" placeholder="支持三种方式：&#10;① 智能展开：粘贴两个 URL，自动找出数字差异并生成全部中间值&#10;② {起-止} 模式：https://site.com/page/{1-50}.html&#10;③ 多行直接输入，每行一个 URL"></textarea>
+    <textarea id="scrapeUrls" placeholder="支持多种模式：&#10;① 枚举：https://site.com/page/{1,4,7,9,12}.html&#10;② 范围：https://site.com/page/{1-50}.html&#10;③ 智能展开：粘贴两行不同数字自动展开&#10;④ 多行直接输入，每行一个 URL"></textarea>
     <div class="scrape-opts">
       <label><input type="radio" name="scrapeType" value="images" checked> 📷 图片</label>
       <label><input type="radio" name="scrapeType" value="text"> 📄 文本</label>

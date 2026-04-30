@@ -63,9 +63,20 @@ function expandUrls(raw) {
     }
   }
   
-  // 常规模式：支持 {start-end} 批量展开，支持多行
+  // 常规模式：支持 {a,b,c} 枚举列表、{start-end} 批量展开，支持多行
   const urls = [];
   for (const line of lines) {
+    // 枚举列表：{1,4,7,9,11,12,15}
+    const enumMatch = line.match(/^(.+)\{([\d,]+)\}(.*)$/);
+    if (enumMatch && enumMatch[2].includes(',')) {
+      const [_, pre, nums, post] = enumMatch;
+      const values = nums.split(',').map(n => n.trim()).filter(Boolean);
+      const pad = values[0].length;
+      for (const v of values) {
+        urls.push(pre + v.padStart(pad, '0') + post);
+      }
+      continue;
+    }
     const m = line.match(/^(.+)\{(\d+)-(\d+)\}(.*)$/);
     if (m) {
       const [_, pre, start, end, post] = m;
