@@ -178,6 +178,10 @@ function prependSessionCard(result) {
   const typeLabel = tp === 'images' ? '📷 图片' : tp === 'text' ? '📄 文本' : tp === 'video' ? '🎬 视频' : tp === 'music' ? '🎵 音频' : '📷📄 图片+文本';
   const fileLabel = tp === 'video' ? '个视频' : tp === 'music' ? '个音频' : '张图片';
   const s = result;
+  const countParts = [];
+  if (s.imageCount > 0) countParts.push(s.imageCount + ' ' + fileLabel);
+  if (s.textCount > 0 && tp !== 'video' && tp !== 'music') countParts.push(s.textCount + ' 个文本');
+  const countText = countParts.length ? '共 ' + countParts.join(', ') : '';
   let imgPreview = '';
   if (s.imageCount > 0 && s.type !== 'video' && s.type !== 'music') {
     const imgs = s.images || [];
@@ -199,7 +203,7 @@ function prependSessionCard(result) {
       </div>
     </div>
     ${imgPreview}
-    <div class="sc-meta">共 ${s.imageCount} ${fileLabel}, ${s.textCount} 个文本${s.errorCount > 0 ? `, ⚠️ ${s.errorCount} 个失败` : ''}</div>
+    ${countText ? `<div class="sc-meta">${countText}${s.errorCount > 0 ? `, ⚠️ ${s.errorCount} 个失败` : ''}</div>` : ''}
     <div class="sc-actions">
       <button class="btn-sm" onclick="transferScrape('${s.sessionId}')">📁 转存到文件</button>
       <button class="btn-sm danger" onclick="delScrapeSession('${s.sessionId}')">🗑 删除</button>
@@ -247,6 +251,10 @@ async function loadScrapeSessions() {
       // 常规采集会话
       const typeLabel = s.type === 'images' ? '📷 图片' : s.type === 'text' ? '📄 文本' : s.type === 'video' ? '🎬 视频' : s.type === 'music' ? '🎵 音频' : '📷📄 图片+文本';
       const fileLabel = s.type === 'video' ? '个视频' : s.type === 'music' ? '个音频' : '张图片';
+      const countParts = [];
+      if (s.imageCount > 0) countParts.push(s.imageCount + ' ' + fileLabel);
+      if (s.textCount > 0 && s.type !== 'video' && s.type !== 'music') countParts.push(s.textCount + ' 个文本');
+      const countText = countParts.length ? '共 ' + countParts.join(', ') : '';
       
       // 图片预览：前3张 + 展开
       let imgPreview = '';
@@ -287,7 +295,7 @@ async function loadScrapeSessions() {
         </div>
         ${imgPreview}
         ${txtPreview}
-        <div class="sc-meta">共 ${s.imageCount} ${fileLabel}, ${s.textCount} 个文本${s.errorCount > 0 ? `, ⚠️ ${s.errorCount} 个失败` : ''}</div>
+        ${countText ? `<div class="sc-meta">${countText}${s.errorCount > 0 ? `, ⚠️ ${s.errorCount} 个失败` : ''}</div>` : ''}
         <div class="sc-actions">
           <button class="btn-sm" onclick="transferScrape('${s.sessionId}')">📁 转存到文件</button>
           <button class="btn-sm danger" onclick="delScrapeSession('${s.sessionId}')">🗑 删除</button>
