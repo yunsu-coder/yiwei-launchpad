@@ -44,7 +44,7 @@ themeBtn.addEventListener('contextmenu', e => {
   if (themeMenu) { themeMenu.remove(); themeMenu = null; return; }
   themeMenu = document.createElement('div');
   themeMenu.style.cssText = 'position:fixed;z-index:9999;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:.3rem;box-shadow:0 8px 24px rgba(0,0,0,0.4);';
-  themeMenu.style.left = e.clientX + 'px'; themeMenu.style.top = e.clientY + 'px';
+  document.body.appendChild(themeMenu);
   const names = {azure:'① 青蓝科技',emerald:'② 暗夜绿',ember:'③ 暖橙棕',snow:'④ 极简白',midnight:'⑤ 墨绿金'};
   themes.forEach(t => {
     const item = document.createElement('div');
@@ -55,7 +55,13 @@ themeBtn.addEventListener('contextmenu', e => {
     item.onclick = () => { currentTheme = t; localStorage.setItem('theme', t); applyTheme(t); themeMenu.remove(); themeMenu = null; };
     themeMenu.appendChild(item);
   });
-  document.body.appendChild(themeMenu);
+  // 定位：靠右对齐，避免溢出屏幕
+  const mw = themeMenu.offsetWidth, mh = themeMenu.offsetHeight;
+  let left = e.clientX, top = e.clientY;
+  if (left + mw > window.innerWidth - 8) left = window.innerWidth - mw - 8;
+  if (top + mh > window.innerHeight - 8) top = window.innerHeight - mh - 8;
+  if (left < 8) left = 8;
+  themeMenu.style.left = left + 'px'; themeMenu.style.top = top + 'px';
   setTimeout(() => document.addEventListener('click', () => { if (themeMenu) { themeMenu.remove(); themeMenu = null; } }, { once: true }), 0);
 });
 function applyTheme(t) {
