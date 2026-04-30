@@ -288,11 +288,11 @@ function fillScrapeUrl(platform) {
     bilibili: 'https://www.bilibili.com/video/BV1xx411c7mD\n（替换为你要采集的B站视频链接）',
     music: 'https://music.163.com/song?id=123456\n（替换为歌曲/专辑链接，支持网易云、QQ音乐）',
     xiaohongshu: 'https://www.xiaohongshu.com/explore/abc123\n（替换为小红书笔记链接）',
-    movie: 'https://movie.douban.com/subject/1234567/\n（替换为豆瓣电影链接，或用搜索URL）',
-    doc: 'https://example.com/doc.pdf\n（替换为文档直链，支持PDF/Word/PPT）',
+    movie: 'https://example.com/movie.mp4\n或电影网站页面URL，自动抓取页面内MP4/MKV视频',
+    doc: 'https://example.com/doc.pdf\n或文档页面URL，自动抓取PDF/DOC/DOCX/XLS/PPT',
   };
   const radios = {
-    bilibili: 'both', music: 'music', xiaohongshu: 'both', movie: 'text', doc: 'both'
+    bilibili: 'both', music: 'music', xiaohongshu: 'both', movie: 'video', doc: 'both'
   };
   ta.value = hints[platform] || '';
   const radio = document.querySelector(`input[name="scrapeType"][value="${radios[platform] || 'both'}"]`);
