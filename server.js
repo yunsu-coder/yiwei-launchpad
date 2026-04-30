@@ -459,7 +459,7 @@ const server = http.createServer(async (req, res) => {
     const type = body.type || 'both';
     if (!['text', 'images', 'both', 'video', 'music'].includes(type)) return sendJSON(res, 400, { error: 'type 只能是 text/images/both/video/music' });
     try {
-      const result = await doScrape(body.urls, type, { minWidth: body.minWidth || 0, minHeight: body.minHeight || 0, followDetail: body.followDetail !== false, deepRender: body.deepRender !== false });
+      const result = await doScrape(body.urls, type, { minWidth: body.minWidth || 0, minHeight: body.minHeight || 0, followDetail: body.followDetail !== false, deepRender: body.deepRender !== false, skipDup: body.skipDup || false });
       return sendJSON(res, 200, result);
     } catch (e) {
       return sendJSON(res, 500, { error: e.message });

@@ -134,10 +134,14 @@ async function startScrape() {
     try {
       const r = await fetch('/api/scrape', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ urls: [url], type }),
+        body: JSON.stringify({ urls: [url], type, skipDup: true }),
       });
       const result = await r.json();
       done++;
+      if (result.dedupSkipped) {
+        toast('⏭️ 已有重复采集记录：' + url.slice(0, 50));
+        continue;
+      }
       if (r.ok && result.sessionId) {
         totalImgs += result.imageCount || 0;
         totalTxts += result.textCount || 0;
