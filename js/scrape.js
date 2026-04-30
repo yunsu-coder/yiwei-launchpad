@@ -1,4 +1,16 @@
 // ===== 采集模块 =====
+
+/** 从分享文本中提取纯 URL（去掉【标题】等中文修饰） */
+function cleanUrl(text) {
+  // 去掉【...】包裹的中文标题
+  let cleaned = text.replace(/【[^】]+】/g, '');
+  // 去掉 [...] 包裹的内容
+  cleaned = cleaned.replace(/\[[^\]]+\]/g, '');
+  // 提取第一个 http/https URL
+  const m = cleaned.match(/https?:\/\/\S+/);
+  return m ? m[0].replace(/[。,，！？、；：）\)""]+$/, '') : text.trim();
+}
+
 function extractNumbers(s) {
   // 提取字符串中所有的数字序列及其位置
   const nums = [];
@@ -11,7 +23,7 @@ function extractNumbers(s) {
 }
 
 function expandUrls(raw) {
-  const lines = raw.split('\n').map(s => s.trim()).filter(Boolean);
+  const lines = raw.split('\n').map(s => cleanUrl(s)).filter(Boolean);
   
   // 智能模式：只有两行，且只有一个字段不同 → 自动展开
   if (lines.length === 2) {
