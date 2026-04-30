@@ -711,7 +711,7 @@ async function loadFiles() {
       if (f.isDir) {
         // 文件夹：点击进入目录
         return `
-        <div class="file-row" style="cursor:default;" onclick="toggleFileCheck(event, '${escAttr(f.relPath)}')"
+        <div class="file-row" style="cursor:default;" onclick="toggleFileCheck(event)"
              ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, '${escAttr(f.relPath)}')">
           <input type="checkbox" class="file-check" data-name="${escAttr(f.relPath)}" onclick="event.stopPropagation();updateBatchBar();" style="flex-shrink:0;">
           <span class="fname" style="cursor:pointer;" onclick="event.stopPropagation();navigateTo('${escAttr(f.relPath)}')" title="进入目录">📁 ${escHtml(f.name)}</span>
@@ -725,10 +725,10 @@ async function loadFiles() {
       }
       // 文件：点击预览
       return `
-        <div class="file-row" style="cursor:default;" onclick="toggleFileCheck(event, '${escAttr(f.relPath)}')"
-             draggable="true" ondragstart="handleDragStart(event, '${escAttr(f.relPath)}')" ondragend="handleDragEnd(event)">
+        <div class="file-row" style="cursor:default;" onclick="toggleFileCheck(event)">
           <input type="checkbox" class="file-check" data-name="${escAttr(f.relPath)}" onclick="event.stopPropagation();updateBatchBar();" style="flex-shrink:0;">
-          <span class="fname" style="cursor:pointer;" onclick="event.stopPropagation();previewFile('${escAttr(f.relPath)}')" title="点击预览">📄 ${escHtml(f.name)}</span>
+          <span class="fname" style="cursor:pointer;" onclick="event.stopPropagation();previewFile('${escAttr(f.relPath)}')" 
+                draggable="true" ondragstart="handleDragStart(event, '${escAttr(f.relPath)}')" ondragend="handleDragEnd(event)" title="点击预览 / 拖拽移动">📄 ${escHtml(f.name)}</span>
           <span class="fsize">${f.isDir ? '' : sz(f.size)}</span>
           <span class="fsize">${new Date(f.mtime).toLocaleDateString('zh-CN')}</span>
           <div class="actions" onclick="event.stopPropagation();">
@@ -861,10 +861,9 @@ async function ocrImage(name) {
 // ===== 拖拽移动 =====
 let dragItems = [];
 
-function toggleFileCheck(e, name) {
+function toggleFileCheck(e) {
   // 点击行空白区域：切换勾选
-  const row = e.currentTarget;
-  const cb = row.querySelector('.file-check');
+  const cb = e.currentTarget.querySelector('.file-check');
   if (cb) { cb.checked = !cb.checked; updateBatchBar(); }
 }
 
@@ -878,12 +877,9 @@ function handleDragStart(e, name) {
   }
   e.dataTransfer.effectAllowed = 'move';
   e.dataTransfer.setData('text/plain', dragItems.join('\n'));
-  // 视觉反馈
-  setTimeout(() => { e.target.style.opacity = '0.5'; }, 0);
 }
 
 function handleDragEnd(e) {
-  e.target.style.opacity = '1';
   dragItems = [];
   document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
 }
